@@ -15,7 +15,7 @@
 #include "can/can_frame_router.hpp"
 #include "can/can_socket.hpp"
 #include "motor_factory.hpp"
-#include "protocol_interface.hpp"
+// #include "protocol_interface.hpp"
 
 namespace robot::motor {
     // 电机-CAN桥接设备

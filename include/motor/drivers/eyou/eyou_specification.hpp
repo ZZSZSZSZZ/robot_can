@@ -14,7 +14,7 @@
 namespace robot::motor::eyou {
     // 电机型号与额定参数配置
     struct EYOUMotorSpec {
-        const std::string type;
+        std::string type;
         double rated_torque_nm; // 额定扭矩 (Nm)
         double rated_current_ma = 1200.0; // 额定电流 (mA)
 

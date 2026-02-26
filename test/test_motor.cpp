@@ -18,7 +18,7 @@ int main() {
 
     // 1. 创建CAN组件
     auto socket = std::make_shared<can::LinuxCANSocket>();
-    auto openRes = socket->open("can0", false);
+    auto openRes = socket->open("vcan0", false);
     if (openRes.isError()) {
         std::cerr << "Failed to open CAN\n";
         return -1;
@@ -52,7 +52,7 @@ int main() {
     auto motor2 = motor::eyou::EYOUFactory::createMotor(2, "EYOU_PP08");
 
     manager->addMotor(motor1);
-    manager->addMotor(motor2);
+    // manager->addMotor(motor2);
 
     // 4. 启动接收和轮询
     auto receiver = std::make_shared<can::CANReceiver>(socket, router);
@@ -72,23 +72,29 @@ int main() {
     auto eyou = EYOUMotor::from(motor1);
 
     eyou->enable();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     // 设置5Nm扭矩
     eyou->setTorque(5.0);
     std::cout << "Set torque 5Nm, equivalent current: " << EYOUUnits::torqueToCurrent(5.0, 1200.0) << " mA\n";
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    // std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
 
     // 使用工厂方法创建扭矩命令
     auto torque_cmd = eyou->makeTorqueCmd(3.0);
     std::cout << "Torque command: " << torque_cmd->getTorque() << " Nm\n";
     eyou->command(*torque_cmd);
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    // std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    // 停止
     manager->disableAll();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // 停止
     manager->stop();
     receiver->stop();
 

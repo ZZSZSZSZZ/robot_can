@@ -19,6 +19,13 @@ add_library(robot_can
         src/can/can_frame_router.cpp
         src/can/can_receiver.cpp
         src/can/can_socket_impl.cpp
+        src/motor/motor_manager.cpp
+        src/motor/motor_factory.cpp
+        src/motor/eyou/eyou_units.cpp
+        src/motor/eyou/eyou_types.cpp
+        src/motor/eyou/eyou_specification.cpp
+        src/motor/eyou/eyou_motor.cpp
+        src/motor/eyou/eyou_factory.cpp
 )
 set_target_properties(robot_can PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -26,9 +33,6 @@ target_include_directories(
         robot_can PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 install(TARGETS robot_can EXPORT robot_can_export)
-#install(DIRECTORY include/common TYPE INCLUDE)
-#install(DIRECTORY include/can TYPE INCLUDE)
-#install(DIRECTORY include/motor TYPE INCLUDE)
 install(DIRECTORY include TYPE INCLUDE)
 
 # logger宏开关 (true 启用, false 禁用)

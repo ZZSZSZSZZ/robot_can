@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 #include "motor_type.hpp"
 #include "can/can_frame.hpp"
@@ -65,13 +66,13 @@ namespace robot::motor {
         // 运动控制
         virtual bool command(const MotorCommand& cmd) = 0;
 
-        virtual bool setPosition(double position_rad, double max_vel = 0, double max_torque = 0);
+        virtual bool setPosition(double position_rad, double max_vel = 0, double max_torque = 0) = 0;
 
-        virtual bool setVelocity(double velocity_rad_s, double max_current = 0);
+        virtual bool setVelocity(double velocity_rad_s, double max_current = 0) = 0;
 
-        virtual bool setTorque(double torque_nm);
+        virtual bool setTorque(double torque_nm) = 0;
 
-        virtual bool setCurrent(double current_a);
+        virtual bool setCurrent(double current_a) = 0;
 
         // 配置
         virtual bool configure(const MotorConfig &config) = 0;
@@ -91,7 +92,7 @@ namespace robot::motor {
 
     class BaseMotor : public Motor {
     public:
-        explicit BaseMotor(const MotorConfig &config) : config_(config) {
+        explicit BaseMotor(MotorConfig config) : config_(std::move(config)) {
             current_state_.timestamp = std::chrono::steady_clock::now();
         }
 

@@ -19,6 +19,8 @@ namespace robot::motor::eyou {
         // 或直接指定规格
         explicit EYOUMotor(const MotorConfig &config, const EYOUMotorSpec &spec);
 
+        ~EYOUMotor() override = default;
+
         const std::string &type() const override;
 
         MotorCapability capabilities() const override;
