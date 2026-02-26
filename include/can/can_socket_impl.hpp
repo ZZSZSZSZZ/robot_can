@@ -35,7 +35,7 @@ namespace robot::can {
         bool supportsExtendedId() const override { return true; }  // SocketCAN总是支持
 
         /// 发送一个 CAN 帧
-        /// @param packet CAN 帧
+        /// @param frame CAN 帧
         /// @return Result<void> 表示成功或错误
         Result<void> writeFrame(const CANFrame& frame) override;
 

@@ -21,13 +21,13 @@ namespace robot::motor::eyou {
         std::string getBrand() const {
             std::string dt(type);
             size_t pos = dt.find('_');
-            return (pos != std::string::npos) ? dt.substr(0, pos) : dt;
+            return pos != std::string::npos ? dt.substr(0, pos) : dt;
         }
 
         std::string getModel() const {
             std::string dt(type);
             size_t pos = dt.find('_');
-            return (pos != std::string::npos) ? dt.substr(pos + 1) : "";
+            return pos != std::string::npos ? dt.substr(pos + 1) : "";
         }
     };
 

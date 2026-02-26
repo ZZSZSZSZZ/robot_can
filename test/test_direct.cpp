@@ -9,7 +9,6 @@
 #include <chrono>
 #include <thread>
 #include <vector>
-#include <atomic>
 #include <condition_variable>
 #include <map>
 #include <pthread.h>          // 用于线程优先级
@@ -27,7 +26,7 @@ using namespace robot::can;
 // 日志回调（简单打印到 stdout）
 void logCallback(const std::string& level, const std::string& msg) {
     static std::mutex cout_mutex;
-    std::lock_guard<std::mutex> lock(cout_mutex);
+    std::lock_guard lock(cout_mutex);
     std::cout << "[" << level << "] " << msg << std::endl;
 }
 
@@ -72,7 +71,7 @@ public:
 
     // 注册一个待确认的帧（由主线程调用）
     void expectResponse(uint8_t seq, std::chrono::steady_clock::time_point send_time) {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(mutex_);
         PendingInfo info;
         info.send_time = send_time;
         info.received = false;
@@ -82,7 +81,7 @@ public:
     // 等待特定序列号的响应，返回 RTT（微秒），超时返回 -1
     int64_t waitForResponse(uint8_t seq, int timeout_ms) {
         auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-        std::unique_lock<std::mutex> lock(mutex_);
+        std::unique_lock lock(mutex_);
         while (true) {
             auto it = pending_.find(seq);
             if (it != pending_.end() && it->second.received) {
@@ -105,7 +104,7 @@ public:
         if (frame.id == expect_recv_id_ && frame.format.isExtendedId == ext_) {
             if (frame.data.empty()) return;
             uint8_t seq = frame.data[0];  // 序列号存储在第一个字节
-            std::lock_guard<std::mutex> lock(mutex_);
+            std::lock_guard lock(mutex_);
             auto it = pending_.find(seq);
             if (it != pending_.end()) {
                 it->second.received = true;
@@ -229,7 +228,7 @@ int main() {
         std::vector<uint8_t> tx_data(PAYLOAD_SIZE, 0);
         tx_data[0] = seq;
         for (size_t j = 1; j < tx_data.size(); ++j) {
-            tx_data[j] = (i >> (8 * j)) & 0xFF;  // 填充一些可变数据
+            tx_data[j] = i >> (8 * j) & 0xFF;  // 填充一些可变数据
         }
 
         // 记录发送时间并通知测试设备

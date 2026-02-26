@@ -52,14 +52,14 @@ namespace robot::motor::eyou {
         if (rated_current_ma <= 0.0) {
             return 0.0; // 防止除零
         }
-        return (current_ma / rated_current_ma) * rated_torque_nm;
+        return current_ma / rated_current_ma * rated_torque_nm;
     }
 
     double EYOUUnits::torqueToCurrent(double torque_nm, double rated_torque_nm, double rated_current_ma) {
         if (rated_torque_nm <= 0.0) {
             return 0.0; // 防止除零
         }
-        return (torque_nm / rated_torque_nm) * rated_current_ma;
+        return torque_nm / rated_torque_nm * rated_current_ma;
     }
 
     double EYOUUnits::currentToTorque(double current_ma, const EYOUMotorSpec &spec) {

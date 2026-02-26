@@ -5,7 +5,6 @@
  * @Version: 1.0
  */
 
-#include <iostream>
 #include <memory>
 
 #include "can/can_socket_impl.hpp"

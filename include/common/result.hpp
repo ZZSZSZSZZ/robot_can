@@ -58,13 +58,12 @@ namespace robot::common {
             using ReturnType = decltype(f(std::declval<T>()));
             if (is_success_) {
                 return Result<ReturnType>(f(value_));
-            } else {
-                return Result<ReturnType>(error_);
             }
+            return Result<ReturnType>(error_);
         }
 
         template<typename Func>
-        Result<T> mapError(Func &&f) {
+        Result mapError(Func &&f) {
             if (!is_success_) {
                 f(error_);
             }

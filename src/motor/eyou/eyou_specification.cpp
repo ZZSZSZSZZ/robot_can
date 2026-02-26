@@ -21,7 +21,7 @@ namespace robot::motor::eyou {
     const EYOUMotorSpec *EYOUSpecRegistry::find(const std::string &driver_type) {
         const auto &map = getMap();
         auto it = map.find(driver_type);
-        return (it != map.end()) ? it->second : nullptr;
+        return it != map.end() ? it->second : nullptr;
     }
 
     std::vector<std::string> EYOUSpecRegistry::getAllDriverTypes() {

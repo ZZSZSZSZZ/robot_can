@@ -14,10 +14,10 @@ namespace robot::motor::eyou {
     public:
         static void registerMotorType();
 
-        // 通过配置创建（driver_type 决定型号）
+        // 通过配置创建（type 决定型号）
         static std::shared_ptr<EYOUMotor> createMotor(const MotorConfig& config);
 
         // 快速创建
-        static std::shared_ptr<EYOUMotor> createMotor(uint32_t id, const std::string& driver_type = "EYOU_PP08");
+        static std::shared_ptr<EYOUMotor> createMotor(uint32_t id, const std::string& type = "EYOU_PP08");
     };
 }

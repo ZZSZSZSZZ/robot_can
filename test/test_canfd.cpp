@@ -21,7 +21,7 @@ using namespace robot::can;
 // 自定义日志回调（带颜色）
 void logCallback(const std::string &level, const std::string &msg) {
     static std::mutex cout_mutex;
-    std::lock_guard<std::mutex> lock(cout_mutex);
+    std::lock_guard lock(cout_mutex);
     if (level == "ERROR")
         std::cout << "\033[31m[" << level << "]\033[0m " << msg << std::endl;
     else if (level == "WARN")
@@ -78,13 +78,12 @@ public:
         if (fd_) {
             // CAN FD 设备：首选 FD，扩展ID取决于参数，最大64字节
             return {CANFrameType::CanFd, extended_, 64, true};
-        } else {
-            // 非 FD 设备：如果是扩展ID则用 Extended，否则 Standard，最大8字节
-            return {
-                extended_ ? CANFrameType::Extended : CANFrameType::Standard,
-                extended_, 8, false
-            };
         }
+        // 非 FD 设备：如果是扩展ID则用 Extended，否则 Standard，最大8字节
+        return {
+            extended_ ? CANFrameType::Extended : CANFrameType::Standard,
+            extended_, 8, false
+        };
     }
 
 private:

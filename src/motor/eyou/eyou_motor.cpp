@@ -14,13 +14,13 @@ namespace robot::motor::eyou {
     static CANFrame makeFrame(uint32_t id, uint8_t cmd, uint8_t addr, int32_t data) {
         std::vector<uint8_t> bytes = {
             cmd, addr,
-            static_cast<uint8_t>((data >> 24) & 0xFF),
-            static_cast<uint8_t>((data >> 16) & 0xFF),
-            static_cast<uint8_t>((data >> 8) & 0xFF),
+            static_cast<uint8_t>(data >> 24 & 0xFF),
+            static_cast<uint8_t>(data >> 16 & 0xFF),
+            static_cast<uint8_t>(data >> 8 & 0xFF),
             static_cast<uint8_t>(data & 0xFF),
             0x00, 0x00
         };
-        return robot::can::CANFrame::makeStandard(id, bytes);
+        return CANFrame::makeStandard(id, bytes);
     }
 
     EYOUMotor::EYOUMotor(const MotorConfig &config) : BaseMotor(config) {
@@ -91,7 +91,7 @@ namespace robot::motor::eyou {
     }
 
     bool EYOUMotor::command(const MotorCommand &cmd) {
-        const EYOUCommand *eyou_cmd = dynamic_cast<const EYOUCommand *>(&cmd);
+        const auto eyou_cmd = dynamic_cast<const EYOUCommand *>(&cmd);
         if (!eyou_cmd) {
             return false;
         }
@@ -136,7 +136,7 @@ namespace robot::motor::eyou {
         return true;
     }
 
-    void EYOUMotor::onCANFrameReceived(const robot::can::CANFrame &frame) {
+    void EYOUMotor::onCANFrameReceived(const CANFrame &frame) {
         MotorState state;
         EYOUMotorState eyou_state;
 
@@ -146,8 +146,8 @@ namespace robot::motor::eyou {
         }
     }
 
-    std::vector<robot::can::CANFrame> EYOUMotor::onStatusPoll() {
-        std::lock_guard<std::mutex> lock(pending_mutex_);
+    std::vector<CANFrame> EYOUMotor::onStatusPoll() {
+        std::lock_guard lock(pending_mutex_);
 
         auto frames = std::move(pending_frames_);
         pending_frames_.clear();
@@ -165,7 +165,7 @@ namespace robot::motor::eyou {
     }
 
     EYOUMotorState EYOUMotor::getEYOUState() const {
-        std::lock_guard<std::mutex> lock(eyou_mutex_);
+        std::lock_guard lock(eyou_mutex_);
         return eyou_state_;
     }
 
@@ -199,12 +199,12 @@ namespace robot::motor::eyou {
     }
 
     void EYOUMotor::enqueueFrames(std::vector<CANFrame> frames) {
-        std::lock_guard<std::mutex> lock(pending_mutex_);
+        std::lock_guard lock(pending_mutex_);
         pending_frames_.insert(pending_frames_.end(), frames.begin(), frames.end());
     }
 
     void EYOUMotor::updateEYOUState(const EYOUMotorState &state) {
-        std::lock_guard<std::mutex> lock(eyou_mutex_);
+        std::lock_guard lock(eyou_mutex_);
         eyou_state_ = state;
     }
 
@@ -217,9 +217,9 @@ namespace robot::motor::eyou {
         if (cmd != Cmd::READ_REPLY && cmd != Cmd::WRITE_REPLY) return false;
 
         auto readInt32 = [&](size_t offset) -> int32_t {
-            return (static_cast<int32_t>(frame.data[offset]) << 24) |
-                   (static_cast<int32_t>(frame.data[offset + 1]) << 16) |
-                   (static_cast<int32_t>(frame.data[offset + 2]) << 8) |
+            return static_cast<int32_t>(frame.data[offset]) << 24 |
+                   static_cast<int32_t>(frame.data[offset + 1]) << 16 |
+                   static_cast<int32_t>(frame.data[offset + 2]) << 8 |
                    static_cast<int32_t>(frame.data[offset + 3]);
         };
 
@@ -250,10 +250,10 @@ namespace robot::motor::eyou {
                 break;
             case Addr::ALARM_STATUS:
                 eyou.alarm_code = static_cast<uint32_t>(value);
-                state.fault = (value != 0);
+                state.fault = value != 0;
                 break;
             case Addr::ENABLE_STATE:
-                state.enabled = (value != 0);
+                state.enabled = value != 0;
                 break;
             default:
                 return false;

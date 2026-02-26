@@ -19,7 +19,7 @@ namespace robot::motor {
 
     std::shared_ptr<Motor> MotorFactory::create(const MotorConfig &cfg) {
         const auto it = registry().find(cfg.type);
-        return (it != registry().end()) ? it->second(cfg) : nullptr;
+        return it != registry().end() ? it->second(cfg) : nullptr;
     }
 
     bool MotorFactory::isRegistered(const std::string &type) {

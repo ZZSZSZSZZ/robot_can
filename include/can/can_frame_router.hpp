@@ -52,7 +52,7 @@ namespace robot::can {
         // 为 DeviceKey 计算哈希值
         struct DeviceKeyHash {
             size_t operator()(const DeviceKey &k) const {
-                return std::hash<uint32_t>()(k.can_id) ^ (std::hash<bool>()(k.extended) << 31);
+                return std::hash<uint32_t>()(k.can_id) ^ std::hash<bool>()(k.extended) << 31;
             }
         };
 

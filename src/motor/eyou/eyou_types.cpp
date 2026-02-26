@@ -14,9 +14,9 @@ namespace robot::motor::eyou {
     static CANFrame makeFrame(uint32_t id, uint8_t cmd, uint8_t addr, int32_t data) {
         std::vector<uint8_t> bytes = {
             cmd, addr,
-            static_cast<uint8_t>((data >> 24) & 0xFF),
-            static_cast<uint8_t>((data >> 16) & 0xFF),
-            static_cast<uint8_t>((data >> 8) & 0xFF),
+            static_cast<uint8_t>(data >> 24 & 0xFF),
+            static_cast<uint8_t>(data >> 16 & 0xFF),
+            static_cast<uint8_t>(data >> 8 & 0xFF),
             static_cast<uint8_t>(data & 0xFF),
             0x00, 0x00
         };

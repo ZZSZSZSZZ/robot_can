@@ -31,7 +31,7 @@ namespace robot::motor {
         req.preferredType = fmt.type;
         req.requireExtendedId = fmt.isExtendedId;
         req.maxDataLength = fmt.dlc;
-        req.requireCanFd = (fmt.type == can::CANFrameType::CanFd);
+        req.requireCanFd = fmt.type == can::CANFrameType::CanFd;
         return req;
     }
 
@@ -48,7 +48,7 @@ namespace robot::motor {
     bool MotorManager::addMotor(std::shared_ptr<Motor> motor) {
         if (!motor || !router_) return false;
 
-        std::unique_lock<std::shared_mutex> lock(motors_mutex_);
+        std::unique_lock lock(motors_mutex_);
         uint32_t id = motor->id();
 
         if (motors_.count(id)) {
@@ -74,7 +74,7 @@ namespace robot::motor {
     void MotorManager::removeMotor(uint32_t motor_id) {
         std::shared_ptr<Motor> motor;
         {
-            std::unique_lock<std::shared_mutex> lock(motors_mutex_);
+            std::unique_lock lock(motors_mutex_);
             auto it = motors_.find(motor_id);
             if (it == motors_.end()) return;
             motor = it->second;
@@ -90,7 +90,7 @@ namespace robot::motor {
     std::shared_ptr<Motor> MotorManager::getMotor(uint32_t motor_id) const {
         std::shared_lock lock(motors_mutex_);
         auto it = motors_.find(motor_id);
-        return (it != motors_.end()) ? it->second : nullptr;
+        return it != motors_.end() ? it->second : nullptr;
     }
 
     std::vector<std::shared_ptr<Motor> > MotorManager::getAllMotors() const {

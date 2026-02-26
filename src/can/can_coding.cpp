@@ -25,7 +25,7 @@ namespace robot::can {
         frame.timestamp = 0;
 
         // 截断或填充数据
-        size_t maxLen = (fmt.type == CANFrameType::CanFd) ? 64 : 8;
+        size_t maxLen = fmt.type == CANFrameType::CanFd ? 64 : 8;
         if (frame.data.size() > maxLen) frame.data.resize(maxLen);
 
         return frame;

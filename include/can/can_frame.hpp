@@ -11,7 +11,6 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
-#include <variant>
 #include <linux/can.h>
 #include <linux/can/raw.h>
 

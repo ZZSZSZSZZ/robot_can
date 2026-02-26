@@ -81,10 +81,10 @@ namespace robot::motor {
         virtual bool saveConfig() { return false; }
 
         // 内部接口（由Manager调用）
-        virtual void onCANFrameReceived(const can::CANFrame &frame) = 0;
+        virtual void onCANFrameReceived(const CANFrame &frame) = 0;
 
         // 状态轮询回调（用于主动查询型电机）
-        virtual std::vector<can::CANFrame> onStatusPoll() { return {}; }
+        virtual std::vector<CANFrame> onStatusPoll() { return {}; }
 
         virtual void setStateCallback(std::function<void(const MotorState &)> cb) = 0;
     };
@@ -109,7 +109,7 @@ namespace robot::motor {
         }
 
         bool waitForStateUpdate(MotorState &state, uint32_t timeout_ms) override {
-            std::unique_lock<std::mutex> lock(state_mutex_);
+            std::unique_lock lock(state_mutex_);
             auto last = current_state_.timestamp;
             bool ok = state_cv_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [&] {
                 return current_state_.timestamp != last;
