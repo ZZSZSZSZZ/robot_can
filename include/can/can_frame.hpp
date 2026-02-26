@@ -24,7 +24,7 @@ namespace robot::can {
     };
 
     // CAN 帧格式
-    struct FrameFormat {
+    struct CANFrameFormat {
         CANFrameType type; // 帧类型
         bool isExtendedId; // 是否使用扩展ID (只在 CAN 中使用)
         uint8_t dlc; // 数据长度代码
@@ -32,24 +32,24 @@ namespace robot::can {
         bool errorStateInd; // CAN FD: 错误状态指示
 
         // 创建标准 CAN 帧格式
-        static FrameFormat standard(const uint8_t dataLen = 8) {
+        static CANFrameFormat standard(const uint8_t dataLen = 8) {
             return {CANFrameType::Standard, false, std::min(dataLen, static_cast<uint8_t>(8)), false, false};
         }
 
         // 创建扩展 CAN 帧格式
-        static FrameFormat extended(const uint8_t dataLen = 8) {
+        static CANFrameFormat extended(const uint8_t dataLen = 8) {
             return {CANFrameType::Extended, true, std::min(dataLen, static_cast<uint8_t>(8)), false, false};
         }
 
         // 创建 CAN FD 帧格式
-        static FrameFormat canFd(const bool extId = false, const uint8_t dataLen = 64, const bool brs = true) {
+        static CANFrameFormat canFd(const bool extId = false, const uint8_t dataLen = 64, const bool brs = true) {
             return {CANFrameType::CanFd, extId, std::min(dataLen, static_cast<uint8_t>(64)), brs, false};
         }
     };
 
     // CAN 帧
     struct CANFrame {
-        FrameFormat format; // CAN 帧格式
+        CANFrameFormat format; // CAN 帧格式
         uint32_t id; // CAN ID
         std::vector<uint8_t> data; // CAN 帧数据
         uint64_t timestamp; // 接收/发送时间戳 (微秒)
@@ -123,7 +123,7 @@ namespace robot::can {
         // 快速创建标准 CAN 帧
         static CANFrame makeStandard(uint32_t id, const std::vector<uint8_t> &payload) {
             CANFrame f;
-            f.format = FrameFormat::standard(payload.size());
+            f.format = CANFrameFormat::standard(payload.size());
             f.id = id & CAN_SFF_MASK;
             f.data = payload;
             if (f.data.size() > 8) f.data.resize(8);
@@ -133,7 +133,7 @@ namespace robot::can {
         // 快速创建扩展 CAN 帧
         static CANFrame makeExtended(uint32_t id, const std::vector<uint8_t> &payload) {
             CANFrame f;
-            f.format = FrameFormat::extended(payload.size());
+            f.format = CANFrameFormat::extended(payload.size());
             f.id = id & CAN_EFF_MASK;
             f.data = payload;
             if (f.data.size() > 8) f.data.resize(8);
@@ -144,7 +144,7 @@ namespace robot::can {
         static CANFrame makeCanFd(uint32_t id, const std::vector<uint8_t> &payload, const bool extId = false,
                                   const bool brs = true) {
             CANFrame f;
-            f.format = FrameFormat::canFd(extId, payload.size(), brs);
+            f.format = CANFrameFormat::canFd(extId, payload.size(), brs);
             f.id = id & (extId ? CAN_EFF_MASK : CAN_SFF_MASK);
             f.data = payload;
             if (f.data.size() > 64) f.data.resize(64);

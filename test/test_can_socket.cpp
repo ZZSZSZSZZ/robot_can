@@ -17,7 +17,7 @@ using namespace robot::common;
 int main() {
     // 创建 socket
     auto socket = std::make_shared<LinuxCANSocket>();
-    auto res = socket->open("vcan0", false);
+    auto res = socket->open("can0", false);
     if (res.isError()) {
         Logger::error("Open failed: " + res.error().toString());
         return -1;

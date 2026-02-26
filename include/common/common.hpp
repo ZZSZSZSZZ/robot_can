@@ -9,7 +9,6 @@
 
 #include "common/result.hpp"
 #include "common/logger.hpp"
-#include "common/motor.hpp"
 
 using robot::common::ErrorCode;
 using robot::common::Result;

@@ -15,7 +15,7 @@ namespace robot::can {
 
         // 如果数据太长，必须使用CAN FD
         if (data.size() > 8) {
-            fmt = FrameFormat::canFd(req.requireExtendedId, data.size(), true);
+            fmt = CANFrameFormat::canFd(req.requireExtendedId, data.size(), true);
         }
 
         CANFrame frame;

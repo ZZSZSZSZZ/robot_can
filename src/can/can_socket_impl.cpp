@@ -51,6 +51,9 @@ namespace robot::can {
             return ErrorCode::transport(common::TransportError::SocketBindFailed, err);
         }
 
+        int loopback = 1; // 1 = enabled (default), 0 = disabled
+        setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback));
+
         // 设置接收自身发送的消息标志
         int recv_own = 1;
         if (::setsockopt(socket_fd_, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own, sizeof(recv_own)) < 0) {

@@ -80,9 +80,9 @@ if (BUILD_TESTING)
     add_executable(test_canfd test/test_canfd.cpp)
     target_link_libraries(test_canfd robot_can)
 
-    add_executable(test_raw test/test_raw.cpp)
-    target_link_libraries(test_raw robot_can)
-
     add_executable(test_direct test/test_direct.cpp)
     target_link_libraries(test_direct robot_can)
+
+    add_executable(test_motor test/test_motor.cpp)
+    target_link_libraries(test_motor robot_can)
 endif ()

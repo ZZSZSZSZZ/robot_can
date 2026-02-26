@@ -20,7 +20,7 @@ namespace robot::can {
         bool requireCanFd; // 是否必须使用CAN FD
 
         // 检查是否兼容给定格式
-        bool isCompatible(const FrameFormat& fmt) const {
+        bool isCompatible(const CANFrameFormat& fmt) const {
             if (requireCanFd && fmt.type != CANFrameType::CanFd) return false;
             if (requireExtendedId && !fmt.isExtendedId) return false;
             if (fmt.dlc > maxDataLength) return false;
@@ -28,14 +28,14 @@ namespace robot::can {
         }
 
         // 获取最佳格式
-        FrameFormat getOptimalFormat() const {
+        CANFrameFormat getOptimalFormat() const {
             if (requireCanFd) {
-                return FrameFormat::canFd(requireExtendedId, maxDataLength);
+                return CANFrameFormat::canFd(requireExtendedId, maxDataLength);
             }
             if (requireExtendedId) {
-                return FrameFormat::extended(maxDataLength);
+                return CANFrameFormat::extended(maxDataLength);
             }
-            return FrameFormat::standard(maxDataLength);
+            return CANFrameFormat::standard(maxDataLength);
         }
     };
 
