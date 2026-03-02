@@ -13,32 +13,60 @@
 namespace robot::motor::eyou {
     class EYOUMotor : public BaseMotor {
     public:
-        // 通过 driver_type 自动查找规格
+        /// 意优电机构造 (通过 type 自动查找规格)
+        /// @param config 电机配置
         explicit EYOUMotor(const MotorConfig &config);
 
-        // 或直接指定规格
+        /// 意优电机构造 (直接指定规格)
+        /// @param config 电机配置
+        /// @param spec 电机额定参数
         explicit EYOUMotor(const MotorConfig &config, const EYOUMotorSpec &spec);
 
         ~EYOUMotor() override = default;
 
+        /// 获取电机型号
+        /// @return 电机型号字符串
         const std::string &type() const override;
 
+        /// 电机能力查询
         MotorCapability capabilities() const override;
 
+        /// 使能
+        /// @return 是否成功
         bool enable() override;
 
+        /// 失能
+        /// @return 是否成功
         bool disable() override;
 
+        /// 急停
+        /// @return 是否成功
         bool emergencyStop() override;
 
+        /// 清空报错
+        /// @return 是否成功
         bool clearFault() override;
 
+        /// 设置零位
+        /// @return 是否成功
         bool setZeroPosition() override;
 
+        /// 控制电机
+        /// @param cmd 控制命令
+        /// @return 是否成功
         bool command(const MotorCommand &cmd) override;
 
+        /// 位置控制 (轮廓位置模式)
+        /// @param position_rad 位置 - 弧度
+        /// @param max_vel 速度
+        /// @param max_torque 力矩
+        /// @return 是否成功
         bool setPosition(double position_rad, double max_vel, double max_torque) override;
 
+        /// 速度控制 (速度模式)
+        /// @param velocity_rad_s 速度 - 弧度每秒
+        /// @param max_current 最大电流
+        /// @return 是否成功
         bool setVelocity(double velocity_rad_s, double max_current) override;
 
         bool setTorque(double torque_nm) override;
@@ -58,8 +86,8 @@ namespace robot::motor::eyou {
         // ========== EYOUMotor 特有接口 ==========
         EYOUMotorState getEYOUState() const;
 
-        static std::unique_ptr<EYOUProfilePositionCmd> makeProfilePositionCmd(
-            double pos, double vel, double acc, double dec, double torque);
+        std::unique_ptr<EYOUProfilePositionCmd> makeProfilePositionCmd(
+            double pos, double vel, double torque, double acc, double dec);
 
         static std::unique_ptr<EYOUVelocityCmd> makeVelocityCmd(double vel, double max_current);
 
