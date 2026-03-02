@@ -45,38 +45,32 @@ namespace robot::motor::eyou {
     }
 
     std::vector<CANFrame> EYOUProfilePositionCmd::encode(uint32_t motor_id) const {
+        const double current_ma = EYOUUnits::torqueToCurrent(torque_, spec_);
+
         return {
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE,
-                      static_cast<int32_t>(WorkMode::ProfilePositionVelocity)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_POSITION,
-                      EYOUUnits::radiansToPulses(position_)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_VELOCITY,
-                      EYOUUnits::radPerSecToPulses(velocity_)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_ACCEL,
-                      EYOUUnits::radPerSecToPulses(accel_)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_DECEL,
-                      EYOUUnits::radPerSecToPulses(decel_))
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE, static_cast<int32_t>(WorkMode::ProfilePosition)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_VELOCITY, EYOUUnits::rpmToPulsesPerSec(velocity_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_CURRENT, static_cast<int32_t>(current_ma)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_ACCEL, EYOUUnits::rpmToPulsesPerSec(accel_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_DECEL, EYOUUnits::rpmToPulsesPerSec(decel_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_POSITION, EYOUUnits::radiansToPulses(position_)),
         };
     }
 
     std::vector<CANFrame> EYOUVelocityCmd::encode(uint32_t motor_id) const {
         return {
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE,
-                      static_cast<int32_t>(WorkMode::ProfileVelocity)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_VELOCITY,
-                      EYOUUnits::radPerSecToPulses(velocity_))
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE, static_cast<int32_t>(WorkMode::Velocity)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_VELOCITY, EYOUUnits::rpmToPulsesPerSec(velocity_))
         };
     }
 
 
     std::vector<CANFrame> EYOUTorqueCmd::encode(uint32_t motor_id) const {
-        double current_ma = EYOUUnits::torqueToCurrent(torque_nm_, spec_.rated_torque_nm);
+        double current_ma = EYOUUnits::torqueToCurrent(torque_nm_, spec_);
 
         return {
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE,
-                      static_cast<int32_t>(WorkMode::Current)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_CURRENT,
-                      EYOUUnits::ampsToMilliamps(current_ma / 1000.0))
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE, static_cast<int32_t>(WorkMode::Current)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_CURRENT, static_cast<int32_t>(current_ma))
         };
     }
 

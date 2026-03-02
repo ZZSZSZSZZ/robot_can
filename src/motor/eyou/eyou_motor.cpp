@@ -156,10 +156,10 @@ namespace robot::motor::eyou {
         frames.push_back(makeFrame(id, Cmd::READ, Addr::POSITION_VALUE, 0));
         frames.push_back(makeFrame(id, Cmd::READ, Addr::VELOCITY_VALUE, 0));
         frames.push_back(makeFrame(id, Cmd::READ, Addr::CURRENT_VALUE, 0));
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::BUS_VOLTAGE, 0));
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::TEMPERATURE, 0));
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::ALARM_STATUS, 0));
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::ENABLE_STATE, 0));
+        // frames.push_back(makeFrame(id, Cmd::READ, Addr::BUS_VOLTAGE, 0));
+        // frames.push_back(makeFrame(id, Cmd::READ, Addr::TEMPERATURE, 0));
+        // frames.push_back(makeFrame(id, Cmd::READ, Addr::ALARM_STATUS, 0));
+        // frames.push_back(makeFrame(id, Cmd::READ, Addr::ENABLE_STATE, 0));
 
         return frames;
     }
@@ -170,8 +170,8 @@ namespace robot::motor::eyou {
     }
 
     std::unique_ptr<EYOUProfilePositionCmd> EYOUMotor::makeProfilePositionCmd(
-        double pos, double vel, double acc, double dec, double torque) {
-        return std::make_unique<EYOUProfilePositionCmd>(pos, vel, acc, dec, torque);
+        double pos, double vel, double torque, double acc, double dec) {
+        return std::make_unique<EYOUProfilePositionCmd>(pos, vel, torque, acc, dec, spec_);
     }
 
     std::unique_ptr<EYOUVelocityCmd> EYOUMotor::makeVelocityCmd(double vel, double max_current) {
@@ -208,7 +208,7 @@ namespace robot::motor::eyou {
         eyou_state_ = state;
     }
 
-    bool EYOUMotor::decodeFrame(const CANFrame &frame,MotorState &state, EYOUMotorState &eyou) {
+    bool EYOUMotor::decodeFrame(const CANFrame &frame, MotorState &state, EYOUMotorState &eyou) {
         if (frame.data.size() < 6) return false;
 
         uint8_t cmd = frame.data[0];
