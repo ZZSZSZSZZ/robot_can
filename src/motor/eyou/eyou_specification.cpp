@@ -18,9 +18,9 @@ namespace robot::motor::eyou {
         return map;
     }
 
-    const EYOUMotorSpec *EYOUSpecRegistry::find(const std::string &driver_type) {
+    const EYOUMotorSpec *EYOUSpecRegistry::find(const std::string &type) {
         const auto &map = getMap();
-        auto it = map.find(driver_type);
+        auto it = map.find(type);
         return it != map.end() ? it->second : nullptr;
     }
 

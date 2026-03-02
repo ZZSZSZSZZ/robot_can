@@ -118,7 +118,7 @@ namespace robot::motor {
         double torque_max = 10.0;
 
         double default_velocity = 5.0;
-        double default_acceleration = 20.0;
+        double default_acceleration = 10.0;
         double default_torque_limit = 5.0;
 
         bool enable_auto_status = true; // 状态获取配置

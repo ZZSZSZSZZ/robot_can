@@ -5,6 +5,8 @@
  * @Version: 1.0
  */
 
+#include <utility>
+
 #include "motor/motor_factory.hpp"
 
 namespace robot::motor {
@@ -14,7 +16,7 @@ namespace robot::motor {
     }
 
     void MotorFactory::registerType(const std::string &type, Creator creator) {
-        registry()[type] = creator;
+        registry()[type] = std::move(creator);
     }
 
     std::shared_ptr<Motor> MotorFactory::create(const MotorConfig &cfg) {

@@ -120,7 +120,7 @@ namespace robot::can {
         }
 
         // 快速创建标准 CAN 帧
-        static CANFrame makeStandard(uint32_t id, const std::vector<uint8_t> &payload) {
+        static CANFrame makeStandard(const uint32_t id, const std::vector<uint8_t> &payload) {
             CANFrame f;
             f.format = CANFrameFormat::standard(payload.size());
             f.id = id & CAN_SFF_MASK;
@@ -130,7 +130,7 @@ namespace robot::can {
         }
 
         // 快速创建扩展 CAN 帧
-        static CANFrame makeExtended(uint32_t id, const std::vector<uint8_t> &payload) {
+        static CANFrame makeExtended(const uint32_t id, const std::vector<uint8_t> &payload) {
             CANFrame f;
             f.format = CANFrameFormat::extended(payload.size());
             f.id = id & CAN_EFF_MASK;
@@ -140,7 +140,7 @@ namespace robot::can {
         }
 
         // 快速创建 CAN FD 帧
-        static CANFrame makeCanFd(uint32_t id, const std::vector<uint8_t> &payload, const bool extId = false,
+        static CANFrame makeCanFd(const uint32_t id, const std::vector<uint8_t> &payload, const bool extId = false,
                                   const bool brs = true) {
             CANFrame f;
             f.format = CANFrameFormat::canFd(extId, payload.size(), brs);

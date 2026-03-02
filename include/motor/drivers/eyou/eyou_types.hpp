@@ -8,6 +8,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 #include <vector>
 #include <string>
 
@@ -40,7 +41,7 @@ namespace robot::motor::eyou {
     // 使能/失能
     class EYOUEnableCmd : public EYOUCommand {
     public:
-        explicit EYOUEnableCmd(bool enable) : enable_(enable) {
+        explicit EYOUEnableCmd(const bool enable) : enable_(enable) {
         }
 
         ControlMode getMode() const override { return ControlMode::Idle; }
@@ -54,8 +55,8 @@ namespace robot::motor::eyou {
     // 轮廓位置命令
     class EYOUProfilePositionCmd : public EYOUCommand {
     public:
-        EYOUProfilePositionCmd(double pos, double vel, double acc, double dec, double torque)
-            : position_(pos), velocity_(vel), accel_(acc), decel_(dec), torque_limit_(torque) {
+        EYOUProfilePositionCmd(double pos, double vel, double torque, double acc, double dec, EYOUMotorSpec spec)
+            : position_(pos), velocity_(vel), torque_(torque), accel_(acc), decel_(dec), spec_(std::move(spec)) {
         }
 
         ControlMode getMode() const override { return ControlMode::ProfilePosition; }
@@ -67,7 +68,8 @@ namespace robot::motor::eyou {
         double velocity_;
         double accel_;
         double decel_;
-        double torque_limit_;
+        double torque_;
+        EYOUMotorSpec spec_;
     };
 
     // 速度命令
@@ -88,7 +90,7 @@ namespace robot::motor::eyou {
     // 扭矩命令
     class EYOUTorqueCmd : public EYOUCommand {
     public:
-        EYOUTorqueCmd(double torque_nm, const EYOUMotorSpec &spec) : torque_nm_(torque_nm), spec_(spec) {
+        EYOUTorqueCmd(double torque_nm, EYOUMotorSpec spec) : torque_nm_(torque_nm), spec_(std::move(spec)) {
         }
 
         ControlMode getMode() const override { return ControlMode::Torque; }

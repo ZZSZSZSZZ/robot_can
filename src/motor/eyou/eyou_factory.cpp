@@ -10,12 +10,11 @@
 
 namespace robot::motor::eyou {
     void EYOUFactory::registerMotorType() {
-        auto registerSpec = [](const EYOUMotorSpec* spec) {
-            MotorFactory::registerType(spec->type, [spec](const MotorConfig& cfg) {
+        auto registerSpec = [](const EYOUMotorSpec *spec) {
+            MotorFactory::registerType(spec->type, [spec](const MotorConfig &cfg) {
                 MotorConfig new_cfg = cfg;
-                new_cfg.type = spec->type;  // 确保一致
-                return std::static_pointer_cast<Motor>(
-                    std::make_shared<EYOUMotor>(new_cfg, *spec));
+                new_cfg.type = spec->type; // 确保一致
+                return std::static_pointer_cast<Motor>(std::make_shared<EYOUMotor>(new_cfg, *spec));
             });
         };
 
@@ -28,7 +27,7 @@ namespace robot::motor::eyou {
         return std::make_shared<EYOUMotor>(config);
     }
 
-    std::shared_ptr<EYOUMotor> EYOUFactory::createMotor(uint32_t id, const std::string& type) {
+    std::shared_ptr<EYOUMotor> EYOUFactory::createMotor(uint32_t id, const std::string &type) {
         MotorConfig cfg;
         cfg.id = id;
         cfg.name = "EYOU_" + std::to_string(id);
