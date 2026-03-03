@@ -117,23 +117,23 @@ namespace robot::motor {
         double velocity_max = 30.0;
         double torque_max = 10.0;
 
-        double default_velocity = 5.0;
-        double default_acceleration = 10.0;
-        double default_torque_limit = 5.0;
+        double default_velocity = 10.0;
+        double default_acceleration = 20.0;
+        double default_torque = 5.0;
 
         bool enable_auto_status = true; // 状态获取配置
         uint32_t status_poll_interval_ms = 10;
 
         std::function<void(const MotorState &)> on_state_update;
 
-        void useStandardFrame(uint8_t dlc = 8) {
-            tx_format = CANFrameFormat::standard(dlc);
-            rx_format = CANFrameFormat::standard(dlc);
+        void useStandardFrame(uint8_t data_len = 8) {
+            tx_format = CANFrameFormat::standard(data_len);
+            rx_format = CANFrameFormat::standard(data_len);
         }
 
-        void useExtendedFrame(uint8_t dlc = 8) {
-            tx_format = CANFrameFormat::extended(dlc);
-            rx_format = CANFrameFormat::extended(dlc);
+        void useExtendedFrame(uint8_t data_len = 8) {
+            tx_format = CANFrameFormat::extended(data_len);
+            rx_format = CANFrameFormat::extended(data_len);
         }
     };
 

@@ -55,7 +55,8 @@ namespace robot::motor::eyou {
     // 轮廓位置命令
     class EYOUProfilePositionCmd : public EYOUCommand {
     public:
-        EYOUProfilePositionCmd(double pos, double vel, double torque, double acc, double dec, EYOUMotorSpec spec)
+        EYOUProfilePositionCmd(const double pos, const double vel, const double torque, const double acc,
+                               const double dec, EYOUMotorSpec spec)
             : position_(pos), velocity_(vel), torque_(torque), accel_(acc), decel_(dec), spec_(std::move(spec)) {
         }
 
@@ -66,9 +67,9 @@ namespace robot::motor::eyou {
     private:
         double position_;
         double velocity_;
+        double torque_;
         double accel_;
         double decel_;
-        double torque_;
         EYOUMotorSpec spec_;
     };
 

@@ -30,7 +30,7 @@ namespace robot::motor {
 
     std::vector<std::string> MotorFactory::getRegisteredTypes() {
         std::vector<std::string> types;
-        for (const auto& [name, _] : registry()) types.push_back(name);
+        for (const auto &[name, _]: registry()) types.push_back(name);
         return types;
     }
 }

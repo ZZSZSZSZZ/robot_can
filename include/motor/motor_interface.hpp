@@ -34,6 +34,8 @@ namespace robot::motor {
 
         virtual const std::string &name() const = 0;
 
+        /// 获取电机型号
+        /// @return 电机型号字符串
         virtual const std::string &type() const = 0;
 
         virtual MotorCapability capabilities() const = 0;
@@ -90,6 +92,7 @@ namespace robot::motor {
         virtual void setStateCallback(std::function<void(const MotorState &)> cb) = 0;
     };
 
+    /// 电机基类
     class BaseMotor : public Motor {
     public:
         explicit BaseMotor(MotorConfig config) : config_(std::move(config)) {
@@ -134,6 +137,8 @@ namespace robot::motor {
         void updateState(const MotorState &new_state) {
             std::lock_guard lock(state_mutex_);
             current_state_ = new_state;
+            current_state_.timestamp = std::chrono::steady_clock::now();
+
             if (state_callback_) {
                 state_callback_(current_state_);
             }

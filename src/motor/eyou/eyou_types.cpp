@@ -51,8 +51,8 @@ namespace robot::motor::eyou {
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE, static_cast<int32_t>(WorkMode::ProfilePosition)),
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_VELOCITY, EYOUUnits::rpmToPulsesPerSec(velocity_)),
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_CURRENT, static_cast<int32_t>(current_ma)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_ACCEL, EYOUUnits::rpmToPulsesPerSec(accel_)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_DECEL, EYOUUnits::rpmToPulsesPerSec(decel_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_ACCEL, EYOUUnits::rpsToPulsesPerSec(accel_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_DECEL, EYOUUnits::rpsToPulsesPerSec(decel_)),
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_POSITION, EYOUUnits::radiansToPulses(position_)),
         };
     }
