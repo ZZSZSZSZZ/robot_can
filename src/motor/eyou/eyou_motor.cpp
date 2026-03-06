@@ -5,27 +5,17 @@
  * @Version: 1.0
  */
 
+#include <utility>
+
 #include "motor/drivers/eyou/eyou_motor.hpp"
 #include "motor/drivers/eyou/eyou_protocol_constants.hpp"
 #include "motor/drivers/eyou/eyou_units.hpp"
+#include "can/can_coding.hpp"
 
 namespace robot::motor::eyou {
-    // 辅助函数
-    static CANFrame makeFrame(uint32_t id, uint8_t cmd, uint8_t addr, int32_t data) {
-        std::vector<uint8_t> bytes = {
-            cmd, addr,
-            static_cast<uint8_t>(data >> 24 & 0xFF),
-            static_cast<uint8_t>(data >> 16 & 0xFF),
-            static_cast<uint8_t>(data >> 8 & 0xFF),
-            static_cast<uint8_t>(data & 0xFF),
-            0x00, 0x00
-        };
-        return CANFrame::makeStandard(id, bytes);
-    }
-
     EYOUMotor::EYOUMotor(const MotorConfig &config) : BaseMotor(config) {
         const auto *found = EYOUSpecRegistry::find(config.type);
-        spec_ = found ? *found : Specs::EYOU_PP08; // 默认规格
+        spec_ = found ? *found : Specs::EYOU_PP11; // 默认规格
     }
 
     EYOUMotor::EYOUMotor(const MotorConfig &config, const EYOUMotorSpec &spec) : BaseMotor(config), spec_(spec) {
@@ -36,56 +26,32 @@ namespace robot::motor::eyou {
         return type;
     }
 
-    MotorCapability EYOUMotor::capabilities() const {
-        return MotorCapability::Enable |
-               MotorCapability::Disable |
-               MotorCapability::EmergencyStop |
-               MotorCapability::ClearFault |
-               MotorCapability::SetZero |
-               MotorCapability::PositionControl |
-               MotorCapability::VelocityControl |
-               MotorCapability::TorqueControl |
-               MotorCapability::CurrentControl |
-               MotorCapability::ProfilePosition |
-               MotorCapability::ProfileVelocity |
-               MotorCapability::FeedbackPosition |
-               MotorCapability::FeedbackVelocity |
-               MotorCapability::FeedbackTorque |
-               MotorCapability::FeedbackCurrent |
-               MotorCapability::FeedbackTemperature |
-               MotorCapability::FeedbackVoltage |
-               MotorCapability::PollStatus |
-               MotorCapability::ConfigurableCanId |
-               MotorCapability::ConfigurableBaudrate |
-               MotorCapability::SaveToFlash;
-    }
-
     bool EYOUMotor::enable() {
-        EYOUEnableCmd cmd(true);
+        const EYOUEnableCmd cmd(true);
         enqueueFrames(cmd.encode(config_.id));
         return true;
     }
 
     bool EYOUMotor::disable() {
-        EYOUEnableCmd cmd(false);
+        const EYOUEnableCmd cmd(false);
         enqueueFrames(cmd.encode(config_.id));
         return true;
     }
 
     bool EYOUMotor::emergencyStop() {
-        EYOUEmergencyStopCmd cmd;
+        const EYOUEmergencyStopCmd cmd;
         enqueueFrames(cmd.encode(config_.id));
         return true;
     }
 
     bool EYOUMotor::clearFault() {
-        EYOUClearFaultCmd cmd;
+        const EYOUClearFaultCmd cmd;
         enqueueFrames(cmd.encode(config_.id));
         return true;
     }
 
     bool EYOUMotor::setZeroPosition() {
-        EYOUSetZeroCmd cmd;
+        const EYOUSetZeroCmd cmd;
         enqueueFrames(cmd.encode(config_.id));
         return true;
     }
@@ -99,12 +65,12 @@ namespace robot::motor::eyou {
         return true;
     }
 
-    bool EYOUMotor::setPosition(double position_rad, double max_vel, double max_torque) {
-        double vel = max_vel > 0 ? max_vel : config_.default_velocity;
-        double acc = config_.default_acceleration;
-        double torque = max_torque > 0 ? max_torque : config_.default_torque_limit;
+    bool EYOUMotor::setPosition(const double position_rad, const double max_vel, const double max_torque) {
+        const double vel = max_vel > 0 ? max_vel : config_.default_velocity;
+        const double acc = config_.default_acceleration;
+        const double torque = max_torque > 0 ? max_torque : config_.default_torque;
 
-        auto cmd = makeProfilePositionCmd(position_rad, vel, acc, acc, torque);
+        const auto cmd = makeProfilePositionCmd(position_rad, vel, torque, acc, acc);
         return command(*cmd);
     }
 
@@ -118,8 +84,8 @@ namespace robot::motor::eyou {
         return command(*cmd);
     }
 
-    bool EYOUMotor::setCurrent(double current_a) {
-        return setTorque(EYOUUnits::currentToTorque(current_a * 1000.0, spec_));
+    bool EYOUMotor::setCurrent(double current_ma) {
+        return setTorque(EYOUUnits::currentToTorque(current_ma, spec_));
     }
 
     bool EYOUMotor::configure(const MotorConfig &config) {
@@ -132,7 +98,7 @@ namespace robot::motor::eyou {
     }
 
     bool EYOUMotor::saveConfig() {
-        enqueueFrames({makeFrame(config_.id, Cmd::FAST_WRITE, Addr::SAVE_DATA, 0x00000001)});
+        enqueueFrames({encodeFrame(Cmd::FAST_WRITE, Addr::SAVE_DATA, 0x00000001)});
         return true;
     }
 
@@ -147,19 +113,33 @@ namespace robot::motor::eyou {
     }
 
     std::vector<CANFrame> EYOUMotor::onStatusPoll() {
-        std::lock_guard lock(pending_mutex_);
+        std::vector<CANFrame> frames;
+        frames.reserve(64);
 
-        auto frames = std::move(pending_frames_);
-        pending_frames_.clear();
+        {
+            std::lock_guard lock(pending_mutex_);
+            if (has_pending_frames_) {
+                frames = std::move(pending_frames_);
+                pending_frames_.clear();
+                has_pending_frames_ = false;
+            }
+        }
 
-        uint32_t id = config_.id;
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::POSITION_VALUE, 0));
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::VELOCITY_VALUE, 0));
-        frames.push_back(makeFrame(id, Cmd::READ, Addr::CURRENT_VALUE, 0));
-        // frames.push_back(makeFrame(id, Cmd::READ, Addr::BUS_VOLTAGE, 0));
-        // frames.push_back(makeFrame(id, Cmd::READ, Addr::TEMPERATURE, 0));
-        // frames.push_back(makeFrame(id, Cmd::READ, Addr::ALARM_STATUS, 0));
-        // frames.push_back(makeFrame(id, Cmd::READ, Addr::ENABLE_STATE, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::POSITION_VALUE, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::VELOCITY_VALUE, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::CURRENT_VALUE, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::BUS_VOLTAGE, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::TEMPERATURE, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::ALARM_STATUS, 0));
+        // frames.push_back(encodeFrame(Cmd::READ, Addr::ENABLE_STATE, 0));
+
+        uint32_t cnt = poll_counter_.fetch_add(1);
+        frames.push_back(encodeFrame(Cmd::READ, Addr::POSITION_VALUE, 0));
+
+        if (cnt % 2 == 0) {
+            frames.push_back(encodeFrame(Cmd::READ, Addr::VELOCITY_VALUE, 0));
+            frames.push_back(encodeFrame(Cmd::READ, Addr::CURRENT_VALUE, 0));
+        }
 
         return frames;
     }
@@ -201,6 +181,30 @@ namespace robot::motor::eyou {
     void EYOUMotor::enqueueFrames(std::vector<CANFrame> frames) {
         std::lock_guard lock(pending_mutex_);
         pending_frames_.insert(pending_frames_.end(), frames.begin(), frames.end());
+        has_pending_frames_ = true;
+    }
+
+    CANFrame EYOUMotor::encodeFrame(uint8_t cmd, uint8_t addr, int32_t data) const {
+        std::vector<uint8_t> payload = {
+            cmd, addr,
+            static_cast<uint8_t>(data >> 24 & 0xFF),
+            static_cast<uint8_t>(data >> 16 & 0xFF),
+            static_cast<uint8_t>(data >> 8 & 0xFF),
+            static_cast<uint8_t>(data & 0xFF),
+            0x00, 0x00
+        };
+        
+        // 使用can_coding进行编码，自动选择最佳格式
+        return can::CANFrameEncoder::encode(payload, config_.id, getFrameRequirement());
+    }
+    
+    can::CANDeviceFrameRequirement EYOUMotor::getFrameRequirement() const {
+        can::CANDeviceFrameRequirement req;
+        req.preferredType = config_.tx_format.type;
+        req.requireExtendedId = config_.tx_format.isExtendedId;
+        req.maxDataLength = config_.tx_format.dlc;
+        req.requireCanFd = config_.tx_format.type == can::CANFrameType::CanFd;
+        return req;
     }
 
     void EYOUMotor::updateEYOUState(const EYOUMotorState &state) {
@@ -216,14 +220,25 @@ namespace robot::motor::eyou {
 
         if (cmd != Cmd::READ_REPLY && cmd != Cmd::WRITE_REPLY) return false;
 
-        auto readInt32 = [&](size_t offset) -> int32_t {
-            return static_cast<int32_t>(frame.data[offset]) << 24 |
-                   static_cast<int32_t>(frame.data[offset + 1]) << 16 |
-                   static_cast<int32_t>(frame.data[offset + 2]) << 8 |
-                   static_cast<int32_t>(frame.data[offset + 3]);
-        };
+        int32_t value = 0;
+        {
+            const uint8_t buf[4] = {frame.data[2], frame.data[3], frame.data[4], frame.data[5]};
+            const uint32_t uval = (static_cast<uint32_t>(buf[0]) << 24) |
+                                  (static_cast<uint32_t>(buf[1]) << 16) |
+                                  (static_cast<uint32_t>(buf[2]) << 8) |
+                                  static_cast<uint32_t>(buf[3]);
+            value = static_cast<int32_t>(uval);
+        }
 
-        int32_t value = readInt32(2);
+        {
+            std::lock_guard lock(state_mutex_);
+            state = current_state_;
+        }
+
+        eyou = {};
+        eyou.raw_position = eyou_state_.raw_position; // 保留上次的有效值
+        eyou.raw_velocity = eyou_state_.raw_velocity;
+        eyou.raw_current = eyou_state_.raw_current;
         state.timestamp = std::chrono::steady_clock::now();
 
         switch (addr) {
@@ -241,20 +256,16 @@ namespace robot::motor::eyou {
                 eyou.estimated_torque = EYOUUnits::currentToTorque(value, spec_);
                 state.torque = eyou.estimated_torque;
                 break;
-            case Addr::BUS_VOLTAGE:
-                eyou.bus_voltage = value * 0.1;
-                state.voltage = eyou.bus_voltage;
-                break;
             case Addr::TEMPERATURE:
                 state.temperature = static_cast<double>(value);
                 break;
-            case Addr::ALARM_STATUS:
-                eyou.alarm_code = static_cast<uint32_t>(value);
-                state.fault = value != 0;
-                break;
-            case Addr::ENABLE_STATE:
-                state.enabled = value != 0;
-                break;
+            // case Addr::ALARM_STATUS:
+            //     eyou.alarm_code = static_cast<uint32_t>(value);
+            //     state.fault = value != 0;
+            //     break;
+            // case Addr::ENABLE_STATE:
+            //     state.enabled = value != 0;
+            //     break;
             default:
                 return false;
         }

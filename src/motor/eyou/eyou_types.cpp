@@ -8,11 +8,12 @@
 #include "motor/drivers/eyou/eyou_types.hpp"
 #include "motor/drivers/eyou/eyou_protocol_constants.hpp"
 #include "motor/drivers/eyou/eyou_units.hpp"
+#include "can/can_coding.hpp"
 
 namespace robot::motor::eyou {
-    // 辅助函数
+    // 辅助函数 - 使用can_coding进行帧编码
     static CANFrame makeFrame(uint32_t id, uint8_t cmd, uint8_t addr, int32_t data) {
-        std::vector<uint8_t> bytes = {
+        std::vector<uint8_t> payload = {
             cmd, addr,
             static_cast<uint8_t>(data >> 24 & 0xFF),
             static_cast<uint8_t>(data >> 16 & 0xFF),
@@ -20,7 +21,15 @@ namespace robot::motor::eyou {
             static_cast<uint8_t>(data & 0xFF),
             0x00, 0x00
         };
-        return CANFrame::makeStandard(id, bytes);
+        
+        // 使用标准CAN设备需求
+        can::CANDeviceFrameRequirement req{};
+        req.preferredType = can::CANFrameType::Standard;
+        req.requireExtendedId = false;
+        req.maxDataLength = 8;
+        req.requireCanFd = false;
+        
+        return can::CANFrameEncoder::encode(payload, id, req);
     }
 
     std::vector<std::string> EYOUMotorState::getAlarmDescriptions() const {
@@ -51,8 +60,8 @@ namespace robot::motor::eyou {
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::WORK_MODE, static_cast<int32_t>(WorkMode::ProfilePosition)),
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_VELOCITY, EYOUUnits::rpmToPulsesPerSec(velocity_)),
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_CURRENT, static_cast<int32_t>(current_ma)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_ACCEL, EYOUUnits::rpsToPulsesPerSec(accel_)),
-            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_DECEL, EYOUUnits::rpsToPulsesPerSec(decel_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_ACCEL, EYOUUnits::rpmToPulsesPerSec(accel_)),
+            makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_DECEL, EYOUUnits::rpmToPulsesPerSec(decel_)),
             makeFrame(motor_id, Cmd::FAST_WRITE, Addr::TARGET_POSITION, EYOUUnits::radiansToPulses(position_)),
         };
     }

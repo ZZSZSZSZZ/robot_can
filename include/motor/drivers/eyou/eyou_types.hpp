@@ -21,7 +21,6 @@ namespace robot::motor::eyou {
     // 意优特定状态
     struct EYOUMotorState {
         uint32_t alarm_code = 0;
-        double bus_voltage = 0.0;
         int32_t raw_position = 0;
         int32_t raw_velocity = 0;
         int32_t raw_current = 0;
@@ -44,8 +43,6 @@ namespace robot::motor::eyou {
         explicit EYOUEnableCmd(const bool enable) : enable_(enable) {
         }
 
-        ControlMode getMode() const override { return ControlMode::Idle; }
-
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
 
     private:
@@ -59,8 +56,6 @@ namespace robot::motor::eyou {
                                const double dec, EYOUMotorSpec spec)
             : position_(pos), velocity_(vel), torque_(torque), accel_(acc), decel_(dec), spec_(std::move(spec)) {
         }
-
-        ControlMode getMode() const override { return ControlMode::ProfilePosition; }
 
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
 
@@ -79,8 +74,6 @@ namespace robot::motor::eyou {
         EYOUVelocityCmd(double vel, double max_current) : velocity_(vel), max_current_(max_current) {
         }
 
-        ControlMode getMode() const override { return ControlMode::Velocity; }
-
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
 
     private:
@@ -94,8 +87,6 @@ namespace robot::motor::eyou {
         EYOUTorqueCmd(double torque_nm, EYOUMotorSpec spec) : torque_nm_(torque_nm), spec_(std::move(spec)) {
         }
 
-        ControlMode getMode() const override { return ControlMode::Torque; }
-
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
 
         double getTorque() const { return torque_nm_; }
@@ -108,24 +99,18 @@ namespace robot::motor::eyou {
     // 紧急停止
     class EYOUEmergencyStopCmd : public EYOUCommand {
     public:
-        ControlMode getMode() const override { return ControlMode::Idle; }
-
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
     };
 
     // 清除故障
     class EYOUClearFaultCmd : public EYOUCommand {
     public:
-        ControlMode getMode() const override { return ControlMode::Idle; }
-
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
     };
 
     // 设置零点
     class EYOUSetZeroCmd : public EYOUCommand {
     public:
-        ControlMode getMode() const override { return ControlMode::Idle; }
-
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
     };
 }

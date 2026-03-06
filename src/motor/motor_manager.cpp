@@ -6,6 +6,7 @@
  */
 
 #include "motor/motor_manager.hpp"
+#include "can/can_coding.hpp"
 #include <mutex>
 
 namespace robot::motor {
@@ -14,6 +15,13 @@ namespace robot::motor {
     }
 
     void MotorCANDevice::onFrameReceived(const CANFrame &frame) {
+        // 使用can_coding验证帧格式
+        auto req = getFrameRequirement();
+        if (!can::CANFrameDecoder::validate(frame, req)) {
+            // 帧格式不符合要求，记录日志并忽略
+            return;
+        }
+
         motor_->onCANFrameReceived(frame);
     }
 
@@ -113,7 +121,13 @@ namespace robot::motor {
         bool all_ok = true;
         for (auto &[id, motor]: motors_) {
             if (!motor->enable()) all_ok = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
+
+        if (socket_) {
+            pollOnce();
+        }
+
         return all_ok;
     }
 
@@ -122,7 +136,13 @@ namespace robot::motor {
         bool all_ok = true;
         for (auto &[id, motor]: motors_) {
             if (!motor->disable()) all_ok = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
+
+        if (socket_) {
+            pollOnce();
+        }
+
         return all_ok;
     }
 
@@ -131,7 +151,13 @@ namespace robot::motor {
         bool all_ok = true;
         for (auto &[id, motor]: motors_) {
             if (!motor->emergencyStop()) all_ok = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
+
+        if (socket_) {
+            pollOnce();
+        }
+
         return all_ok;
     }
 
@@ -140,7 +166,13 @@ namespace robot::motor {
         bool all_ok = true;
         for (auto &[id, motor]: motors_) {
             if (!motor->clearFault()) all_ok = false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
+
+        if (socket_) {
+            pollOnce();
+        }
+
         return all_ok;
     }
 
@@ -154,8 +186,7 @@ namespace robot::motor {
             info.id = id;
             info.name = motor->name();
             info.driver_type = motor->type();
-            info.capabilities = motor->capabilities();
-            info.enabled = motor->getState().enabled;
+            // info.enabled = motor->getState().enabled;
             info.last_update = motor->getState().timestamp;
             infos.push_back(info);
         }
@@ -193,18 +224,36 @@ namespace robot::motor {
     void MotorManager::pollOnce() {
         std::shared_lock lock(motors_mutex_);
 
+        std::vector<CANFrame> all_frames;
+        all_frames.reserve(motors_.size() * 10); // 预分配
+
         for (auto &[id, motor]: motors_) {
-            // 只处理需要主动查询的电机（如意优）
-            if (motor->supports(MotorCapability::PollStatus)) {
-                auto frames = motor->onStatusPoll();
-                for (const auto &frame: frames) {
-                    if (socket_) {
-                        auto result = socket_->writeFrame(frame);
-                        if (result.isError()) {
-                            // 可以记录错误
-                        }
-                    }
+            auto frames = motor->onStatusPoll();
+            all_frames.insert(all_frames.end(), frames.begin(), frames.end());
+        }
+
+        for (const auto &frame: all_frames) {
+            if (!socket_) break;
+
+            // 重试机制处理 EAGAIN
+            int retries = 3;
+            while (retries-- > 0) {
+                auto result = socket_->writeFrame(frame);
+                if (result.isSuccess()) {
+                    break; // 发送成功
                 }
+
+                auto ec = result.error();
+                if (ec.category == common::ErrorCategory::Transport &&
+                    ec.sub_code == EAGAIN) {
+                    // 缓冲区满，短暂等待后重试
+                    std::this_thread::sleep_for(std::chrono::microseconds(100));
+                    continue;
+                }
+
+                // 其他错误，记录并放弃
+                Logger::warn("CAN write failed: " + ec.toString());
+                break;
             }
         }
     }

@@ -29,6 +29,10 @@ namespace robot::motor::eyou {
 
         static double pulsesPerSecToRpm(int32_t pulsesPerSec);
 
+        static int32_t rpsToPulsesPerSec(double rps);
+
+        static double pulsesPerSecToRps(int32_t pulsesPerSec);
+
         static int32_t radPerSecToPulses(double rad_s);
 
         static double pulsesToRadPerSec(int32_t pulses);

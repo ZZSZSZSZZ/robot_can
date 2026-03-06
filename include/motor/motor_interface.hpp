@@ -21,7 +21,6 @@ namespace robot::motor {
     class MotorCommand {
     public:
         virtual ~MotorCommand() = default;
-        virtual ControlMode getMode() const = 0;
     };
 
     // 电机抽象类
@@ -30,26 +29,28 @@ namespace robot::motor {
         virtual ~Motor() = default;
 
         // 基本信息
+        /// 电机 ID
+        /// @return 电机 ID 字符串
         virtual uint32_t id() const = 0;
 
+        /// 电机名称
+        /// @return 电机名称字符串
         virtual const std::string &name() const = 0;
 
         /// 获取电机型号
         /// @return 电机型号字符串
         virtual const std::string &type() const = 0;
 
-        virtual MotorCapability capabilities() const = 0;
-
-        virtual bool supports(MotorCapability cap) const {
-            return hasCapability(capabilities(), cap);
-        }
-
-        // 状态查询
+        // 电机状态
+        /// 获取电机状态
+        /// @return 电机状态
         virtual MotorState getState() const = 0;
 
-        virtual bool waitForStateUpdate(MotorState &state, uint32_t timeout_ms = 100) = 0;
+        /// 设置电机状态
+        /// @param state 电机状态
+        // virtual void setState(const MotorState& state) = 0;
 
-        virtual bool hasFault() const = 0;
+        virtual bool waitForStateUpdate(MotorState &state, uint32_t timeout_ms) = 0;
 
         virtual uint32_t getFaultCode() const { return 0; }
         virtual std::vector<std::string> getFaultDescriptions() const { return {}; }
@@ -68,9 +69,9 @@ namespace robot::motor {
         // 运动控制
         virtual bool command(const MotorCommand& cmd) = 0;
 
-        virtual bool setPosition(double position_rad, double max_vel = 0, double max_torque = 0) = 0;
+        virtual bool setPosition(double position_rad, double max_vel, double max_torque) = 0;
 
-        virtual bool setVelocity(double velocity_rad_s, double max_current = 0) = 0;
+        virtual bool setVelocity(double velocity_rad_s, double max_current) = 0;
 
         virtual bool setTorque(double torque_nm) = 0;
 
@@ -105,11 +106,6 @@ namespace robot::motor {
         MotorState getState() const override {
             std::lock_guard lock(state_mutex_);
             return current_state_;
-        }
-
-        bool hasFault() const override {
-            std::lock_guard lock(state_mutex_);
-            return current_state_.fault;
         }
 
         bool waitForStateUpdate(MotorState &state, uint32_t timeout_ms) override {

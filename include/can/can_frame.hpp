@@ -25,7 +25,7 @@ namespace robot::can {
     // CAN 帧格式
     struct CANFrameFormat {
         CANFrameType type; // 帧类型
-        bool isExtendedId; // 是否使用扩展ID (只在 CAN 中使用)
+        bool isExtendedId; // 是否使用扩展ID
         uint8_t dlc; // 数据长度代码
         bool bitRateSwitch; // CAN FD: 是否使用BRS (波特率切换)
         bool errorStateInd; // CAN FD: 错误状态指示

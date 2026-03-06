@@ -26,6 +26,8 @@ add_library(robot_can
         src/motor/eyou/eyou_specification.cpp
         src/motor/eyou/eyou_motor.cpp
         src/motor/eyou/eyou_factory.cpp
+        src/robot/arm_component.cpp
+#        src/robot/robot.cpp
 )
 set_target_properties(robot_can PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -89,4 +91,7 @@ if (BUILD_TESTING)
 
     add_executable(test_motor test/test_motor.cpp)
     target_link_libraries(test_motor robot_can)
+
+    add_executable(test_component test/test_component.cpp)
+    target_link_libraries(test_component robot_can)
 endif ()

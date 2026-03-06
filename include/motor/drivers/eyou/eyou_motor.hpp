@@ -7,8 +7,11 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "motor/motor_interface.hpp"
 #include "eyou_types.hpp"
+#include "can/can_device.hpp"
 
 namespace robot::motor::eyou {
     class EYOUMotor : public BaseMotor {
@@ -29,9 +32,6 @@ namespace robot::motor::eyou {
         /// 获取电机型号
         /// @return 电机型号字符串
         const std::string &type() const override;
-
-        /// 电机能力查询
-        MotorCapability capabilities() const override;
 
         /// 使能
         /// @return 是否成功
@@ -113,12 +113,20 @@ namespace robot::motor::eyou {
         mutable std::mutex eyou_mutex_;
         std::vector<CANFrame> pending_frames_;
         mutable std::mutex pending_mutex_;
+        std::atomic<bool> has_pending_frames_{false};
         EYOUMotorSpec spec_;
+        std::atomic<uint32_t> poll_counter_{0};
 
         void enqueueFrames(std::vector<CANFrame> frames);
 
         void updateEYOUState(const EYOUMotorState &state);
 
         bool decodeFrame(const CANFrame &frame, MotorState &state, EYOUMotorState &eyou);
+        
+        // 使用can_coding进行帧编码
+        CANFrame encodeFrame(uint8_t cmd, uint8_t addr, int32_t data) const;
+        
+        // 获取帧格式需求
+        can::CANDeviceFrameRequirement getFrameRequirement() const;
     };
 }
