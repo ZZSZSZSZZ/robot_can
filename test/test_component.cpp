@@ -18,7 +18,7 @@ int main() {
 
     // 1. 创建CAN组件
     auto socket = std::make_shared<can::LinuxCANSocket>();
-    auto openRes = socket->open("can0", false);
+    auto openRes = socket->open("vcan0", false);
     if (openRes.isError()) {
         std::cerr << "Failed to open CAN\n";
         return -1;
@@ -49,19 +49,14 @@ int main() {
     // 3. 添加意优电机
     motor::eyou::EYOUFactory::registerMotorType();
 
-    std::cout << "Registered driver types:\n";
-    for (const auto &t: motor::MotorFactory::getRegisteredTypes()) {
-        std::cout << "  " << t << "\n";
-    }
-
     auto arm = std::make_shared<ArmComponent>(manager);
 
     std::vector<motor::MotorConfig> cfgs;
 
-    for (int i = 1; i < 8; ++i) {
+    for (int i = 1; i < 2; ++i) {
         motor::MotorConfig cfg;
         cfg.id = i;
-        cfg.name = "EYOU_"+ std::to_string(i);
+        cfg.name = "EYOU_" + std::to_string(i);
         cfg.type = "EYOU_PP11";
         if (i > 4) cfg.type = "EYOU_PP11L";
         cfg.tx_can_id = i;
@@ -72,8 +67,6 @@ int main() {
 
     arm->initialize(cfgs);
 
-    manager->start();
-
     // 5. 设置状态回调
     manager->setGlobalStateCallback([](uint32_t id, const motor::MotorState &s) {
         std::cout << "Motor " << id << ": "
@@ -81,41 +74,38 @@ int main() {
                 << "torque=" << s.torque << " Nm\n";
     });
 
-    // if (!manager->enableAll()) return 0;
-    manager->enableAll();
+    if (!arm->enableAll()) {
+        Logger::warn("Failed to enable all arm");
+        return 0;
+    }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    using namespace robot::motor::eyou;
-
     // 6. 控制示例
 
-    // motor1->enable();
-
-    // 设置5Nm扭矩
-    // motor1->setTorque(-1.2);
-    // std::cout << "Set torque 5Nm, equivalent current: " << EYOUUnits::torqueToCurrent(5.0, 1200.0) << " mA\n";
-    // eyou->setZeroPosition();
-
     std::vector<double> positions = {0.6, 0.6, 0.6, -0.6, 0.6, 0.6, 0.6};
-    std::vector<double> velocity = {25, 25, 25, 10, 10, 5, 5};
-    std::vector<double> torques = {1, 1, 2, 8, 12, 12, 12};
+    // std::vector<double> velocity = {25, 25, 25, 10, 10, 5, 5};
+    std::vector<double> velocity = {25};
+    // std::vector<double> torques = {1, 1, 2, 8, 12, 12, 12};
+    std::vector<double> torques = {1};
     // std::vector<double> kp = {10, 10, 10, 10, 10, 10, 10};
     // std::vector<double> kd = {1, 1, 1, 1, 1, 1, 1};
+
     // arm->setPositions(positions, velocity, torques);
 
     // std::this_thread::sleep_for(std::chrono::seconds(5));
 
     for (int i = 1; i < 157; ++i) {
         double x = i * 0.01;
-        positions = {0 + x, 0 + x, 0 + x, 0 - x, 0 - x, 0 + x, 0 + x};
+        // positions = {0 + x, 0 + x, 0 + x, 0 - x, 0 - x, 0 + x, 0 + x};
+        positions = {0 + x};
         arm->setPositions(positions, velocity, torques);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
-
+    // mit 控制 千万不要用
     // for (int i = 1; i < 157; ++i) {
     //     double x = i * 0.01;
     //     positions = {0 + x, 0 + x, 0 + x, 0 - x, 0 - x, 0 + x, 0 + x};
@@ -124,23 +114,16 @@ int main() {
     // }
     // std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    positions = {0, 0, 0, 0, 0, 0, 0};
+    // positions = {0, 0, 0, 0, 0, 0, 0};
+    positions = {0};
     arm->setPositions(positions, velocity, torques);
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    // 使用工厂方法创建扭矩命令
-
-    // auto eyou1 = EYOUMotor::from(motor1);
-
-    // auto torque_cmd = eyou->makeTorqueCmd(3.0);
-    // std::cout << "Torque command: " << torque_cmd->getTorque() << " Nm\n";
-    // eyou->command(*torque_cmd);
-
-    // std::this_thread::sleep_for(std::chrono::seconds(2));
-    // std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    manager->disableAll();
+    if (!arm->disableAll()) {
+        Logger::warn("Failed to disable all arm");
+        return 0;
+    }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     // 停止

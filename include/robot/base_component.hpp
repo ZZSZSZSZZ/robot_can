@@ -19,6 +19,10 @@ namespace robot {
 
         virtual void shutdown() = 0;
 
+        virtual bool enableAll() const = 0;
+
+        virtual bool disableAll() const = 0;
+
         virtual std::string getName() const = 0;
     };
 }

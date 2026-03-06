@@ -18,7 +18,7 @@ int main() {
 
     // 1. 创建CAN组件
     auto socket = std::make_shared<can::LinuxCANSocket>();
-    auto openRes = socket->open("can0", false);
+    auto openRes = socket->open("vcan0", false);
     if (openRes.isError()) {
         std::cerr << "Failed to open CAN\n";
         return -1;
@@ -28,7 +28,8 @@ int main() {
 
     // 2. 创建电机管理器
     motor::MotorManager::Options opts;
-    opts.status_poll_interval_ms = 20;
+    opts.status_poll_interval_ms = 10;
+    opts.skip_poll_if_disabled = true;
 
     auto manager = std::make_shared<motor::MotorManager>(socket, router, opts);
 
@@ -151,8 +152,8 @@ int main() {
                 << "torque=" << s.torque << " Nm\n";
     });
 
-    // if (!manager->enableAll()) return 0;
-    manager->enableAll();
+    if (!manager->enableAll()) return 0;
+    // manager->enableAll();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 

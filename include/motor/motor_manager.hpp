@@ -15,7 +15,7 @@
 #include "can/can_frame_router.hpp"
 #include "can/can_socket.hpp"
 #include "motor_factory.hpp"
-// #include "protocol_interface.hpp"
+#include "drivers/eyou/eyou_types.hpp"
 
 namespace robot::motor {
     // 电机-CAN桥接设备
@@ -24,7 +24,7 @@ namespace robot::motor {
         explicit MotorCANDevice(const std::shared_ptr<Motor> &motor);
 
         // CANDevice 实现
-        void onFrameReceived(const CANFrame &frame) override;
+        void onFrameReceived(const eyou::CANFrame &frame) override;
 
         uint32_t getReceiveId() const override;
 
@@ -46,10 +46,12 @@ namespace robot::motor {
         struct Options {
             uint32_t status_poll_interval_ms;
             bool enable_background_thread;
+            bool skip_poll_if_disabled;  ///< 未使能时跳过查询，等所有电机使能后再统一查询
 
             Options()
                 : status_poll_interval_ms(10)
-                  , enable_background_thread(true) {
+                  , enable_background_thread(true)
+                  , skip_poll_if_disabled(true) {
             }
         };
 
@@ -84,6 +86,20 @@ namespace robot::motor {
 
         bool clearAllFaults();
 
+        // ==================== 指定电机操作（带状态确认） ====================
+
+        /// 使能指定电机并等待状态确认
+        /// @param motor_ids 电机ID列表
+        /// @param timeout_ms 超时时间（毫秒，默认3000ms）
+        /// @return 是否成功使能
+        bool enableMotors(const std::vector<uint32_t>& motor_ids, uint32_t timeout_ms = 3000);
+
+        /// 失能指定电机并等待状态确认
+        /// @param motor_ids 电机ID列表
+        /// @param timeout_ms 超时时间（毫秒，默认3000ms）
+        /// @return 是否成功失能
+        bool disableMotors(const std::vector<uint32_t>& motor_ids, uint32_t timeout_ms = 3000);
+
         // ==================== 状态监控 ====================
 
         std::vector<MotorInfo> getMotorInfos() const;
@@ -97,6 +113,7 @@ namespace robot::motor {
         bool isRunning() const;
 
         // 手动轮询一次（用于非线程模式或调试）
+        // 当 state_only_polling_ 为 true 时，只查询状态
         void pollOnce();
 
     private:
@@ -111,6 +128,9 @@ namespace robot::motor {
         std::thread poll_thread_;
 
         std::function<void(uint32_t, const MotorState &)> global_state_cb_;
+
+        // 标志：当前只查询状态（不查询位置/速度等数据）
+        std::atomic<bool> state_only_polling_{};
 
         void pollLoop();
     };

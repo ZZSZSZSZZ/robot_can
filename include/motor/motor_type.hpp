@@ -43,14 +43,7 @@ namespace robot::motor {
         double velocity = 0.0; // 当前实际速度
         double torque = 0.0; // 当前实际力矩
         double current = 0.0; // 当前实际电流
-        double voltage = 0.0;
         double temperature = 0.0; // 温度
-
-        std::vector<uint8_t> raw_data;
-
-        bool isValid() const {
-            return timestamp.time_since_epoch().count() > 0;
-        }
     };
 
     // 电机配置

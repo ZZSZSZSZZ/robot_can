@@ -15,9 +15,11 @@
 #include "eyou_specification.hpp"
 #include "eyou_units.hpp"
 #include "motor/motor_interface.hpp"
-#include "can/can_frame.hpp"
+#include "motor/drivers/base/can_motor.hpp"
 
 namespace robot::motor::eyou {
+    using robot::can::CANFrame;
+
     // 意优特定状态
     struct EYOUMotorState {
         uint32_t alarm_code = 0;
@@ -32,9 +34,9 @@ namespace robot::motor::eyou {
     };
 
     // 意优命令基类
-    class EYOUCommand : public MotorCommand {
+    class EYOUCommand : public MotorCommand, public CANCommandEncoder {
     public:
-        virtual std::vector<CANFrame> encode(uint32_t motor_id) const = 0;
+        std::vector<CANFrame> encode(uint32_t motor_id) const override = 0;
     };
 
     // 使能/失能

@@ -21,11 +21,11 @@ add_library(robot_can
         src/can/can_socket_impl.cpp
         src/motor/motor_manager.cpp
         src/motor/motor_factory.cpp
-        src/motor/eyou/eyou_units.cpp
-        src/motor/eyou/eyou_types.cpp
-        src/motor/eyou/eyou_specification.cpp
-        src/motor/eyou/eyou_motor.cpp
-        src/motor/eyou/eyou_factory.cpp
+        src/motor/drivers/eyou/eyou_units.cpp
+        src/motor/drivers/eyou/eyou_types.cpp
+        src/motor/drivers/eyou/eyou_specification.cpp
+        src/motor/drivers/eyou/eyou_motor.cpp
+        src/motor/drivers/eyou/eyou_factory.cpp
         src/robot/arm_component.cpp
 #        src/robot/robot.cpp
 )

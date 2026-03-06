@@ -22,10 +22,9 @@ namespace robot {
 
         void shutdown() override;
 
-        std::string getName() const override { return name_; }
+        bool enableAll() const override;
 
-        // void enableAll() const { manager_->enableAll(); }
-        // void disableAll() const { manager_->disableAll(); }
+        bool disableAll() const override;
 
         void setPositions(const std::vector<double> &positions,
                           const std::vector<double> &velocity,
@@ -37,21 +36,33 @@ namespace robot {
                              const std::vector<double> &kp,
                              const std::vector<double> &kd);
 
+        std::string getName() const override { return name_; }
+
+        std::shared_ptr<motor::Motor> getMotor(const size_t index) {
+            return (index < motors_.size()) ? motors_[index] : nullptr;
+        }
+
         std::vector<motor::MotorState> getStates() const {
             std::vector<motor::MotorState> states;
             for (auto &motor: motors_) states.push_back(motor->getState());
             return states;
         }
 
-        std::shared_ptr<motor::Motor> getMotor(const size_t index) {
-            return (index < motors_.size()) ? motors_[index] : nullptr;
-        }
-
         size_t getMotorCount() const { return motors_.size(); }
 
     private:
+        struct ArmMotorState {
+            uint32_t id;
+            double position;
+            double velocity;
+            double torque;
+        };
+
+        void setStart(uint32_t id, const motor::MotorState &s);
+
         std::string name_;
         std::shared_ptr<motor::MotorManager> manager_;
         std::vector<std::shared_ptr<motor::Motor> > motors_;
+        std::vector<ArmMotorState> states_;
     };
 }

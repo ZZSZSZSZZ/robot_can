@@ -21,11 +21,39 @@ namespace robot {
             motors_.push_back(motor);
         }
 
+        manager_->start();
+
         Logger::info("Initializing " + name_ + " Component");
     }
 
     void ArmComponent::shutdown() {
         motors_.clear();
+    }
+
+    bool ArmComponent::enableAll() const {
+        std::vector<uint32_t> motor_ids;
+        motor_ids.reserve(motors_.size()); // 预分配空间提高效率
+        for (const auto &motor_ptr: motors_) {
+            if (motor_ptr) {
+                // 可选：检查指针是否为空
+                motor_ids.push_back(motor_ptr->id());
+            }
+        }
+
+        return manager_->enableMotors(motor_ids);
+    }
+
+    bool ArmComponent::disableAll() const {
+        std::vector<uint32_t> motor_ids;
+        motor_ids.reserve(motors_.size()); // 预分配空间提高效率
+        for (const auto &motor_ptr: motors_) {
+            if (motor_ptr) {
+                // 可选：检查指针是否为空
+                motor_ids.push_back(motor_ptr->id());
+            }
+        }
+
+        return manager_->disableMotors(motor_ids);
     }
 
     void ArmComponent::setPositions(const std::vector<double> &positions,

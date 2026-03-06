@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "motor_interface.hpp"
 
 namespace robot::motor {

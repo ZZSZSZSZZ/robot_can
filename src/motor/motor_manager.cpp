@@ -14,7 +14,7 @@ namespace robot::motor {
     MotorCANDevice::MotorCANDevice(const std::shared_ptr<Motor> &motor) : motor_(motor) {
     }
 
-    void MotorCANDevice::onFrameReceived(const CANFrame &frame) {
+    void MotorCANDevice::onFrameReceived(const can::CANFrame &frame) {
         // 使用can_coding验证帧格式
         auto req = getFrameRequirement();
         if (!can::CANFrameDecoder::validate(frame, req)) {
@@ -35,7 +35,7 @@ namespace robot::motor {
 
     can::CANDeviceFrameRequirement MotorCANDevice::getFrameRequirement() const {
         const auto &fmt = motor_->getConfig().rx_format;
-        can::CANDeviceFrameRequirement req;
+        can::CANDeviceFrameRequirement req{};
         req.preferredType = fmt.type;
         req.requireExtendedId = fmt.isExtendedId;
         req.maxDataLength = fmt.dlc;
@@ -47,6 +47,7 @@ namespace robot::motor {
                                const std::shared_ptr<can::CANFrameRouter> &router,
                                const Options &options)
         : socket_(socket), router_(router), options_(options) {
+        state_only_polling_.store(options.skip_poll_if_disabled, std::memory_order_relaxed);
     }
 
     MotorManager::~MotorManager() {
@@ -117,30 +118,130 @@ namespace robot::motor {
     }
 
     bool MotorManager::enableAll() {
-        std::shared_lock lock(motors_mutex_);
-        bool all_ok = true;
-        for (auto &[id, motor]: motors_) {
-            if (!motor->enable()) all_ok = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        // 收集所有电机ID
+        std::vector<uint32_t> all_ids;
+        {
+            std::shared_lock lock(motors_mutex_);
+            all_ids.reserve(motors_.size());
+            for (const auto &[id, _]: motors_) {
+                all_ids.push_back(id);
+            }
+        }
+        return enableMotors(all_ids);
+    }
+
+    bool MotorManager::disableAll() {
+        // 收集所有电机ID
+        std::vector<uint32_t> all_ids;
+        {
+            std::shared_lock lock(motors_mutex_);
+            all_ids.reserve(motors_.size());
+            for (const auto &[id, _]: motors_) {
+                all_ids.push_back(id);
+            }
+        }
+        return disableMotors(all_ids);
+    }
+
+    bool MotorManager::enableMotors(const std::vector<uint32_t>& motor_ids, uint32_t timeout_ms) {
+        // 获取电机对象并发送使能命令
+        std::vector<std::shared_ptr<Motor>> motors;
+        {
+            std::shared_lock lock(motors_mutex_);
+            for (uint32_t id: motor_ids) {
+                auto it = motors_.find(id);
+                if (it != motors_.end()) {
+                    motors.push_back(it->second);
+                }
+            }
         }
 
-        if (socket_) {
-            pollOnce();
+        bool all_ok = true;
+        for (auto& motor: motors) {
+            if (!motor->enable()) all_ok = false;
+        }
+
+        // 如果启用了跳过未使能电机查询，等待所有电机使能完成
+        if (options_.skip_poll_if_disabled) {
+            state_only_polling_.store(true, std::memory_order_relaxed);
+
+            constexpr uint32_t check_interval_ms = 10;
+            uint32_t waited_ms = 0;
+            bool all_enabled = false;
+            while (waited_ms < timeout_ms) {
+                {
+                    std::shared_lock lock(motors_mutex_);
+                    all_enabled = true;
+                    for (uint32_t id: motor_ids) {
+                        auto it = motors_.find(id);
+                        if (it == motors_.end() || it->second->getState().state_machine != MotorStateMachine::Enabled) {
+                            all_enabled = false;
+                            break;
+                        }
+                    }
+                    if (all_enabled) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(check_interval_ms));
+                waited_ms += check_interval_ms;
+            }
+            if (!all_enabled) {
+                return false;
+            }
+
+            state_only_polling_.store(false, std::memory_order_relaxed);
         }
 
         return all_ok;
     }
 
-    bool MotorManager::disableAll() {
-        std::shared_lock lock(motors_mutex_);
-        bool all_ok = true;
-        for (auto &[id, motor]: motors_) {
-            if (!motor->disable()) all_ok = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    bool MotorManager::disableMotors(const std::vector<uint32_t>& motor_ids, uint32_t timeout_ms) {
+        // 获取电机对象并发送失能命令
+        std::vector<std::shared_ptr<Motor>> motors;
+        {
+            std::shared_lock lock(motors_mutex_);
+            for (uint32_t id: motor_ids) {
+                auto it = motors_.find(id);
+                if (it != motors_.end()) {
+                    motors.push_back(it->second);
+                }
+            }
         }
 
-        if (socket_) {
-            pollOnce();
+        bool all_ok = true;
+        for (auto& motor: motors) {
+            if (!motor->disable()) all_ok = false;
+        }
+
+        // 如果启用了跳过未使能电机查询，等待所有电机失能完成
+        if (options_.skip_poll_if_disabled) {
+            state_only_polling_.store(true, std::memory_order_relaxed);
+
+            constexpr uint32_t check_interval_ms = 10;
+            uint32_t waited_ms = 0;
+            bool all_disabled = false;
+            while (waited_ms < timeout_ms) {
+                {
+                    std::shared_lock lock(motors_mutex_);
+                    all_disabled = true;
+                    for (uint32_t id: motor_ids) {
+                        auto it = motors_.find(id);
+                        if (it == motors_.end()) continue;
+                        const auto state = it->second->getState().state_machine;
+                        if (state != MotorStateMachine::Disabled && state != MotorStateMachine::Fault) {
+                            all_disabled = false;
+                            break;
+                        }
+                    }
+                    if (all_disabled) break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(check_interval_ms));
+                waited_ms += check_interval_ms;
+            }
+            if (!all_disabled) {
+                return false;
+            }
+
+            state_only_polling_.store(false, std::memory_order_relaxed);
         }
 
         return all_ok;
@@ -151,7 +252,6 @@ namespace robot::motor {
         bool all_ok = true;
         for (auto &[id, motor]: motors_) {
             if (!motor->emergencyStop()) all_ok = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
 
         if (socket_) {
@@ -166,7 +266,6 @@ namespace robot::motor {
         bool all_ok = true;
         for (auto &[id, motor]: motors_) {
             if (!motor->clearFault()) all_ok = false;
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
 
         if (socket_) {
@@ -224,12 +323,31 @@ namespace robot::motor {
     void MotorManager::pollOnce() {
         std::shared_lock lock(motors_mutex_);
 
-        std::vector<CANFrame> all_frames;
-        all_frames.reserve(motors_.size() * 10); // 预分配
-
+        std::vector<can::CANFrame> all_frames;
+        
+        // 判断是否只查询状态
+        const bool state_only = state_only_polling_.load(std::memory_order_relaxed);
+        
         for (auto &[id, motor]: motors_) {
-            auto frames = motor->onStatusPoll();
-            all_frames.insert(all_frames.end(), frames.begin(), frames.end());
+            const auto state = motor->getState().state_machine;
+            
+            // 如果启用了跳过未使能电机查询，跳过 Disabled 和 Fault 状态的电机
+            if (options_.skip_poll_if_disabled) {
+                if (state == MotorStateMachine::Disabled || state == MotorStateMachine::Fault) {
+                    continue;
+                }
+            }
+            
+            // 然后根据模式添加状态查询帧
+            if (state_only) {
+                // 只查询状态（使能/故障）
+                auto frames = motor->onStateOnlyPoll();
+                all_frames.insert(all_frames.end(), frames.begin(), frames.end());
+            } else {
+                // 正常查询所有数据
+                auto frames = motor->onStatusPoll();
+                all_frames.insert(all_frames.end(), frames.begin(), frames.end());
+            }
         }
 
         for (const auto &frame: all_frames) {
