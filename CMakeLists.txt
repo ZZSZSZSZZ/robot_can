@@ -27,7 +27,7 @@ add_library(robot_can
         src/motor/drivers/eyou/eyou_motor.cpp
         src/motor/drivers/eyou/eyou_factory.cpp
         src/robot/arm_component.cpp
-#        src/robot/robot.cpp
+        src/robot/robot.cpp
 )
 set_target_properties(robot_can PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -35,7 +35,7 @@ target_include_directories(
         robot_can PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 install(TARGETS robot_can EXPORT robot_can_export)
-install(DIRECTORY include TYPE INCLUDE)
+install(DIRECTORY include/ DESTINATION include)
 
 # logger宏开关 (true 启用, false 禁用)
 target_compile_definitions(robot_can PRIVATE LOG_ENABLED=true)
@@ -94,4 +94,10 @@ if (BUILD_TESTING)
 
     add_executable(test_component test/test_component.cpp)
     target_link_libraries(test_component robot_can)
+
+    add_executable(test_multi_can test/test_multi_can.cpp)
+    target_link_libraries(test_multi_can robot_can)
+
+    add_executable(test_robot test/test_robot.cpp)
+    target_link_libraries(test_robot robot_can)
 endif ()
