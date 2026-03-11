@@ -24,11 +24,7 @@ namespace robot::motor::eyou {
         return pulses * DEGREES_PER_REV / PULSES_PER_REV;
     }
 
-    // int32_t EYOUUnits::radiansToPulses(double radians) {
-    //     return static_cast<int32_t>(radians * PULSES_PER_REV / (2.0 * M_PI));
-    // }
-
-    /// 弧度转换为脉冲数
+    /// 弧度转换为脉冲数 (用于下发位置信息)
     /// @param radians 弧度
     /// @return 脉冲数
     /// @note 转换公式: 脉冲数 = 弧度 * 65536 / 2π
@@ -52,6 +48,9 @@ namespace robot::motor::eyou {
         return low;
     }
 
+    ///
+    /// @param radians 弧度
+    /// @return 脉冲数
     double EYOUUnits::pulsesToRadians(const int32_t pulses) {
         return pulses * 2.0 * M_PI / PULSES_PER_REV;
     }

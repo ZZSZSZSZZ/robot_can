@@ -115,4 +115,18 @@ namespace robot::motor::eyou {
     public:
         std::vector<CANFrame> encode(uint32_t motor_id) const override;
     };
+
+    // 读取寄存器命令（查询命令）
+    class EYOUReadCmd : public EYOUCommand {
+    public:
+        explicit EYOUReadCmd(uint8_t addr) : addr_(addr) {
+        }
+
+        std::vector<CANFrame> encode(uint32_t motor_id) const override;
+
+        uint8_t getAddress() const { return addr_; }
+
+    private:
+        uint8_t addr_;
+    };
 }

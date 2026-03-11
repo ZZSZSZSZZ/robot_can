@@ -83,27 +83,34 @@ int main() {
 
     // 6. 控制示例
 
-    std::vector<double> positions = {0.6, 0.6, 0.6, -0.6, 0.6, 0.6, 0.6};
-    // std::vector<double> velocity = {25, 25, 25, 10, 10, 5, 5};
-    std::vector<double> velocity = {25};
-    // std::vector<double> torques = {1, 1, 2, 8, 12, 12, 12};
-    std::vector<double> torques = {1};
+    std::vector<PositionParam> params;
+    std::vector<double> position = {0.6, 0.6, 0.6, -0.6, 0.6, 0.6, 0.6};
+    std::vector<double> velocity = {25, 25, 25, 10, 10, 5, 5};
+    std::vector<double> torque = {1, 1, 2, 8, 12, 12, 12};
     // std::vector<double> kp = {10, 10, 10, 10, 10, 10, 10};
     // std::vector<double> kd = {1, 1, 1, 1, 1, 1, 1};
 
-    // arm->setPositions(positions, velocity, torques);
+    params.reserve(arm->getMotorCount());
+    for (size_t i = 0; i < arm->getMotorCount(); ++i) {
+        params[i] = {position[i], velocity[i], torque[i], 10};
+    }
+    arm->setPositions(params);
 
-    // std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
     for (int i = 1; i < 157; ++i) {
         double x = i * 0.01;
-        // positions = {0 + x, 0 + x, 0 + x, 0 - x, 0 - x, 0 + x, 0 + x};
-        positions = {0 + x};
-        arm->setPositions(positions, velocity, torques);
+        position = {0 + x, 0 + x, 0 + x, 0 - x, 0 - x, 0 + x, 0 + x};
+
+        for (size_t j = 0; j < arm->getMotorCount(); ++j) {
+            params[i] = {position[j], velocity[j], torque[j], 10};
+        }
+        arm->setPositions(params);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
+    params.clear();
 
     // mit 控制 千万不要用
     // for (int i = 1; i < 157; ++i) {
@@ -114,9 +121,10 @@ int main() {
     // }
     // std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    // positions = {0, 0, 0, 0, 0, 0, 0};
-    positions = {0};
-    arm->setPositions(positions, velocity, torques);
+    for (size_t i = 0; i < arm->getMotorCount(); ++i) {
+        params[i] = {0, velocity[i], torque[i], 10};
+    }
+    arm->setPositions(params);
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
@@ -127,6 +135,7 @@ int main() {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     // 停止
+    params.clear();
     arm->shutdown();
     manager->stop();
     receiver->stop();

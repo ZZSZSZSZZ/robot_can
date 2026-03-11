@@ -15,16 +15,6 @@
 using robot::can::CANFrameFormat;
 
 namespace robot::motor {
-    // 控制模式
-    enum class ControlMode {
-        Position, // 位置模式
-        Velocity, // 速度模式
-        Torque, // 力矩模式
-        ProfilePosition, // 轮廓位置模式
-        MIT, // MIT模式
-        Impedance // 阻抗控制
-    };
-
     // 电机状态机
     enum class MotorStateMachine : uint8_t {
         Disabled = 0, // 未使能，不查询
@@ -52,8 +42,10 @@ namespace robot::motor {
         std::string name; // 电机名称
         std::string type; // 电机类型
 
-        uint32_t tx_can_id = 0; // 发送CAN ID (默认电机ID)
-        uint32_t rx_can_id = 0; // 接收CAN ID (默认电机ID)
+        std::string interface_name = "default"; // 所属CAN接口名称
+
+        uint32_t tx_can_id = 0; // 发送CAN ID
+        uint32_t rx_can_id = 0; // 接收CAN ID
 
         CANFrameFormat tx_format; // 发送帧格式
         CANFrameFormat rx_format; // 接收帧格式 (期望)

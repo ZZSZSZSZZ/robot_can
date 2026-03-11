@@ -43,11 +43,20 @@ namespace robot::motor {
         return req;
     }
 
+    MotorManager::MotorManager(const std::shared_ptr<can::CANFrameRouter> &router, const Options &options)
+        : router_(router), options_(options) {
+        state_only_polling_.store(options.skip_poll_if_disabled, std::memory_order_relaxed);
+    }
+
     MotorManager::MotorManager(const std::shared_ptr<can::CANSocket> &socket,
                                const std::shared_ptr<can::CANFrameRouter> &router,
                                const Options &options)
         : socket_(socket), router_(router), options_(options) {
         state_only_polling_.store(options.skip_poll_if_disabled, std::memory_order_relaxed);
+        // 向后兼容：将传入的socket添加到多接口映射中，使用 "default" 作为名称
+        if (socket_) {
+            sockets_["default"] = socket_;
+        }
     }
 
     MotorManager::~MotorManager() {
@@ -285,7 +294,6 @@ namespace robot::motor {
             info.id = id;
             info.name = motor->name();
             info.driver_type = motor->type();
-            // info.enabled = motor->getState().enabled;
             info.last_update = motor->getState().timestamp;
             infos.push_back(info);
         }
@@ -323,55 +331,76 @@ namespace robot::motor {
     void MotorManager::pollOnce() {
         std::shared_lock lock(motors_mutex_);
 
-        std::vector<can::CANFrame> all_frames;
-        
+        // 按接口分组帧
+        std::unordered_map<std::string, std::vector<can::CANFrame>> frames_by_interface;
+
         // 判断是否只查询状态
         const bool state_only = state_only_polling_.load(std::memory_order_relaxed);
-        
+
         for (auto &[id, motor]: motors_) {
             const auto state = motor->getState().state_machine;
-            
+
             // 如果启用了跳过未使能电机查询，跳过 Disabled 和 Fault 状态的电机
             if (options_.skip_poll_if_disabled) {
                 if (state == MotorStateMachine::Disabled || state == MotorStateMachine::Fault) {
                     continue;
                 }
             }
-            
-            // 然后根据模式添加状态查询帧
+
+            // 获取电机的接口名称
+            std::string interface_name = motor->getConfig().interface_name;
+            if (interface_name.empty()) {
+                interface_name = "default";  // 使用默认接口
+            }
+
+            // 根据模式添加状态查询帧
+            std::vector<can::CANFrame> frames;
             if (state_only) {
-                // 只查询状态（使能/故障）
-                auto frames = motor->onStateOnlyPoll();
-                all_frames.insert(all_frames.end(), frames.begin(), frames.end());
+                frames = motor->onStateOnlyPoll();
             } else {
-                // 正常查询所有数据
-                auto frames = motor->onStatusPoll();
-                all_frames.insert(all_frames.end(), frames.begin(), frames.end());
+                frames = motor->onStatusPoll();
+            }
+
+            // 按接口分组
+            if (!frames.empty()) {
+                auto& iface_frames = frames_by_interface[interface_name];
+                iface_frames.insert(iface_frames.end(),
+                                   std::make_move_iterator(frames.begin()),
+                                   std::make_move_iterator(frames.end()));
             }
         }
 
-        for (const auto &frame: all_frames) {
-            if (!socket_) break;
+        lock.unlock();
 
-            // 重试机制处理 EAGAIN
-            int retries = 3;
-            while (retries-- > 0) {
-                auto result = socket_->writeFrame(frame);
-                if (result.isSuccess()) {
-                    break; // 发送成功
+        // 发送帧到对应接口
+        for (auto& [interface_name, frames] : frames_by_interface) {
+            auto socket = getInterface(interface_name);
+            if (!socket) {
+                Logger::warn("No socket found for interface: " + interface_name);
+                continue;
+            }
+
+            for (const auto &frame: frames) {
+                // 重试机制处理 EAGAIN
+                int retries = 3;
+                while (retries-- > 0) {
+                    auto result = socket->writeFrame(frame);
+                    if (result.isSuccess()) {
+                        break; // 发送成功
+                    }
+
+                    auto ec = result.error();
+                    if (ec.category == common::ErrorCategory::Transport &&
+                        ec.sub_code == EAGAIN) {
+                        // 缓冲区满，短暂等待后重试
+                        std::this_thread::sleep_for(std::chrono::microseconds(100));
+                        continue;
+                    }
+
+                    // 其他错误，记录并放弃
+                    Logger::warn("CAN write failed on " + interface_name + ": " + ec.toString());
+                    break;
                 }
-
-                auto ec = result.error();
-                if (ec.category == common::ErrorCategory::Transport &&
-                    ec.sub_code == EAGAIN) {
-                    // 缓冲区满，短暂等待后重试
-                    std::this_thread::sleep_for(std::chrono::microseconds(100));
-                    continue;
-                }
-
-                // 其他错误，记录并放弃
-                Logger::warn("CAN write failed: " + ec.toString());
-                break;
             }
         }
     }
@@ -382,5 +411,62 @@ namespace robot::motor {
             pollOnce();
             std::this_thread::sleep_until(start + std::chrono::milliseconds(options_.status_poll_interval_ms));
         }
+    }
+
+    // ==================== 多CAN接口管理 ====================
+
+    bool MotorManager::addInterface(const std::string &name, const std::shared_ptr<can::CANSocket> &socket) {
+        if (!socket) {
+            return false;
+        }
+
+        std::unique_lock lock(sockets_mutex_);
+
+        // 检查是否已存在
+        if (sockets_.count(name)) {
+            Logger::warn("Interface already exists: " + name);
+            return false;
+        }
+
+        sockets_[name] = socket;
+        Logger::info("Added CAN interface: " + name);
+        return true;
+    }
+
+    void MotorManager::removeInterface(const std::string &name) {
+        std::unique_lock lock(sockets_mutex_);
+        sockets_.erase(name);
+        Logger::info("Removed CAN interface: " + name);
+    }
+
+    std::shared_ptr<can::CANSocket> MotorManager::getInterface(const std::string &name) const {
+        std::shared_lock lock(sockets_mutex_);
+
+        auto it = sockets_.find(name);
+        if (it != sockets_.end()) {
+            return it->second;
+        }
+
+        // 向后兼容：如果没有找到，尝试使用默认socket
+        if (name == "default" || name.empty()) {
+            return socket_;
+        }
+
+        return nullptr;
+    }
+
+    std::vector<std::string> MotorManager::getInterfaceNames() const {
+        std::shared_lock lock(sockets_mutex_);
+        std::vector<std::string> names;
+        names.reserve(sockets_.size());
+        for (const auto &[name, _] : sockets_) {
+            names.push_back(name);
+        }
+        return names;
+    }
+
+    size_t MotorManager::getInterfaceCount() const {
+        std::shared_lock lock(sockets_mutex_);
+        return sockets_.size();
     }
 }

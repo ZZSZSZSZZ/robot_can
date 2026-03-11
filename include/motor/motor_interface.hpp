@@ -131,10 +131,6 @@ namespace robot::motor {
         /// @return 当前配置
         virtual MotorConfig getConfig() const = 0;
 
-        /// 保存配置到持久存储
-        /// @return 是否成功
-        virtual bool saveConfig() { return false; }
-
         // ========== 回调设置 ==========
 
         /// 设置状态更新回调

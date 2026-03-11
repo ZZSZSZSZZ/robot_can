@@ -12,7 +12,7 @@
 
 #include "eyou_protocol_constants.hpp"
 #include "motor/drivers/base/polling_motor.hpp"
-#include "eyou_types.hpp"
+#include "eyou_command.hpp"
 
 namespace robot::motor::eyou {
     /**
@@ -52,8 +52,6 @@ namespace robot::motor::eyou {
         bool setVelocity(double velocity_rad_s, double max_current) override;
         bool setTorque(double torque_nm) override;
         bool setCurrent(double current_a) override;
-
-        bool saveConfig() override;
 
         uint32_t getFaultCode() const override;
         std::vector<std::string> getFaultDescriptions() const override;
@@ -117,19 +115,5 @@ namespace robot::motor::eyou {
         /// 更新意优特定状态
         /// @param state 新的意优状态
         void updateEYOUState(const EYOUMotorState &state);
-
-        /// 编码意优帧
-        /// @param cmd 命令类型
-        /// @param addr 寄存器地址
-        /// @param data 数据
-        /// @return 编码后的帧
-        can::CANFrame encodeEYOUFrame(uint8_t cmd, uint8_t addr, int32_t data) const;
-
-        /// 创建读取命令帧
-        /// @param addr 寄存器地址
-        /// @return 读取命令帧
-        can::CANFrame makeReadFrame(uint8_t addr) const {
-            return encodeEYOUFrame(Cmd::READ, addr, 0);
-        }
     };
 } // namespace robot::motor::eyou

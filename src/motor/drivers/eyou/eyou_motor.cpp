@@ -99,13 +99,6 @@ namespace robot::motor::eyou {
         return setTorque(EYOUUnits::currentToTorque(current_a * 1000.0, spec_));
     }
 
-    // ========== 配置管理 ==========
-
-    bool EYOUMotor::saveConfig() {
-        enqueueFrame(encodeEYOUFrame(Cmd::FAST_WRITE, Addr::SAVE_DATA, 0x00000001));
-        return true;
-    }
-
     // ========== 故障管理 ==========
 
     uint32_t EYOUMotor::getFaultCode() const {
@@ -132,32 +125,34 @@ namespace robot::motor::eyou {
 
     void EYOUMotor::generatePollFrames(std::vector<can::CANFrame> &out_frames) {
         const uint32_t cnt = incrementPollCount();
+        const uint32_t can_id = getTransmitCanId();
 
         // 位置每轮询必查
-        out_frames.push_back(makeReadFrame(Addr::POSITION_VALUE));
+        out_frames.push_back(EYOUReadCmd(Addr::POSITION_VALUE).encode(can_id)[0]);
 
         // 速度和电流按分频查询
         if (cnt % polling_policy_.velocity_poll_divisor == 0) {
-            out_frames.push_back(makeReadFrame(Addr::VELOCITY_VALUE));
-            out_frames.push_back(makeReadFrame(Addr::CURRENT_VALUE));
+            out_frames.push_back(EYOUReadCmd(Addr::VELOCITY_VALUE).encode(can_id)[0]);
+            out_frames.push_back(EYOUReadCmd(Addr::CURRENT_VALUE).encode(can_id)[0]);
         }
 
         // 温度低频查询
         if (cnt % polling_policy_.temperature_poll_divisor == 0) {
-            out_frames.push_back(makeReadFrame(Addr::TEMPERATURE));
+            out_frames.push_back(EYOUReadCmd(Addr::TEMPERATURE).encode(can_id)[0]);
         }
 
         // 使能状态和故障状态查询（每轮询都查，用于状态机更新）
-        out_frames.push_back(makeReadFrame(Addr::ENABLE_STATE));
+        out_frames.push_back(EYOUReadCmd(Addr::ENABLE_STATE).encode(can_id)[0]);
         if (cnt % 5 == 0) {  // 故障状态低频查询
-            out_frames.push_back(makeReadFrame(Addr::ALARM_STATUS));
+            out_frames.push_back(EYOUReadCmd(Addr::ALARM_STATUS).encode(can_id)[0]);
         }
     }
 
     void EYOUMotor::generateStateOnlyPollFrames(std::vector<can::CANFrame> &out_frames) {
         // 只查询使能状态和故障状态
-        out_frames.push_back(makeReadFrame(Addr::ENABLE_STATE));
-        out_frames.push_back(makeReadFrame(Addr::ALARM_STATUS));
+        const uint32_t can_id = getTransmitCanId();
+        out_frames.push_back(EYOUReadCmd(Addr::ENABLE_STATE).encode(can_id)[0]);
+        out_frames.push_back(EYOUReadCmd(Addr::ALARM_STATUS).encode(can_id)[0]);
     }
 
     // ========== EYOUMotor 特有接口 ==========
@@ -201,18 +196,6 @@ namespace robot::motor::eyou {
     void EYOUMotor::updateEYOUState(const EYOUMotorState &state) {
         std::lock_guard lock(eyou_mutex_);
         eyou_state_ = state;
-    }
-
-    can::CANFrame EYOUMotor::encodeEYOUFrame(uint8_t cmd, uint8_t addr, int32_t data) const {
-        std::vector<uint8_t> payload = {
-            cmd, addr,
-            static_cast<uint8_t>((data >> 24) & 0xFF),
-            static_cast<uint8_t>((data >> 16) & 0xFF),
-            static_cast<uint8_t>((data >> 8) & 0xFF),
-            static_cast<uint8_t>(data & 0xFF),
-            0x00, 0x00
-        };
-        return encodeFrame(payload, getTransmitCanId());
     }
 
     bool EYOUMotor::decodeFrame(const can::CANFrame &frame, MotorState &state, EYOUMotorState &eyou) {

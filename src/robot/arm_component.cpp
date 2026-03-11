@@ -56,18 +56,16 @@ namespace robot {
         return manager_->disableMotors(motor_ids);
     }
 
-    void ArmComponent::setPositions(const std::vector<double> &positions,
-                                    const std::vector<double> &velocity,
-                                    const std::vector<double> &torque) const {
-        if (positions.size() != motors_.size() ||
-            velocity.size() != motors_.size() ||
-            torque.size() != motors_.size()) {
+    void ArmComponent::setPositions(const std::vector<PositionParam> &param) const {
+        if (param.size() != motors_.size()) {
             throw common::ApplicationException(
                 common::ApplicationError::InvalidConfiguration, "Position count mismatch", name_);
         }
 
         for (size_t i = 0; i < motors_.size(); ++i) {
-            motors_[i]->setPosition(positions[i], velocity[i], torque[i]);
+            const auto motor = motor::eyou::EYOUMotor::from(motors_[i]);
+            auto cmd = motor->makeProfilePositionCmd(param[i].position, param[i].velocity, param[i].torque, param[i].acc, param[i].acc);
+            motor->command(*cmd);
         }
     }
 
@@ -75,7 +73,7 @@ namespace robot {
                                        const std::vector<double> &velocity,
                                        const std::vector<double> &torque,
                                        const std::vector<double> &kp,
-                                       const std::vector<double> &kd) {
+                                       const std::vector<double> &kd) const {
         if (positions.size() != motors_.size()) {
             throw common::ApplicationException(
                 common::ApplicationError::InvalidConfiguration, "Position count mismatch", name_);

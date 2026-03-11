@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "motor/drivers/eyou/eyou_types.hpp"
+#include "motor/drivers/eyou/eyou_command.hpp"
 #include <cmath>
 
 namespace robot::motor::eyou {

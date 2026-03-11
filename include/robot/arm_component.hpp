@@ -13,6 +13,13 @@
 #include "motor/drivers/eyou/eyou_factory.hpp"
 
 namespace robot {
+    struct PositionParam {
+        double position;
+        double velocity;
+        double torque;
+        double acc;
+    };
+
     class ArmComponent : public BaseComponent {
     public:
         ArmComponent(const std::shared_ptr<motor::MotorManager> &manager,
@@ -26,15 +33,13 @@ namespace robot {
 
         bool disableAll() const override;
 
-        void setPositions(const std::vector<double> &positions,
-                          const std::vector<double> &velocity,
-                          const std::vector<double> &torque) const;
+        void setPositions(const std::vector<robot::PositionParam> &param) const;
 
         void setMITPositions(const std::vector<double> &positions,
                              const std::vector<double> &velocity,
                              const std::vector<double> &torque,
                              const std::vector<double> &kp,
-                             const std::vector<double> &kd);
+                             const std::vector<double> &kd) const;
 
         std::string getName() const override { return name_; }
 
@@ -51,18 +56,8 @@ namespace robot {
         size_t getMotorCount() const { return motors_.size(); }
 
     private:
-        struct ArmMotorState {
-            uint32_t id;
-            double position;
-            double velocity;
-            double torque;
-        };
-
-        void setStart(uint32_t id, const motor::MotorState &s);
-
         std::string name_;
         std::shared_ptr<motor::MotorManager> manager_;
         std::vector<std::shared_ptr<motor::Motor> > motors_;
-        std::vector<ArmMotorState> states_;
     };
 }

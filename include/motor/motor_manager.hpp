@@ -15,7 +15,7 @@
 #include "can/can_frame_router.hpp"
 #include "can/can_socket.hpp"
 #include "motor_factory.hpp"
-#include "drivers/eyou/eyou_types.hpp"
+#include "drivers/eyou/eyou_command.hpp"
 
 namespace robot::motor {
     // 电机-CAN桥接设备
@@ -46,15 +46,24 @@ namespace robot::motor {
         struct Options {
             uint32_t status_poll_interval_ms;
             bool enable_background_thread;
-            bool skip_poll_if_disabled;  ///< 未使能时跳过查询，等所有电机使能后再统一查询
+            bool skip_poll_if_disabled; // 未使能时跳过查询
 
             Options()
-                : status_poll_interval_ms(10)
-                  , enable_background_thread(true)
-                  , skip_poll_if_disabled(true) {
+                : status_poll_interval_ms(10),
+                  enable_background_thread(true),
+                  skip_poll_if_disabled(true) {
             }
         };
 
+        /// 构造函数（多接口模式）
+        /// @param router CAN帧路由器
+        /// @param options 选项
+        explicit MotorManager(const std::shared_ptr<can::CANFrameRouter> &router, const Options &options = Options());
+
+        /// 构造函数（单接口模式，向后兼容）
+        /// @param socket CAN套接字
+        /// @param router CAN帧路由器
+        /// @param options 选项
         explicit MotorManager(const std::shared_ptr<can::CANSocket> &socket,
                               const std::shared_ptr<can::CANFrameRouter> &router, const Options &options = Options());
 
@@ -92,13 +101,13 @@ namespace robot::motor {
         /// @param motor_ids 电机ID列表
         /// @param timeout_ms 超时时间（毫秒，默认3000ms）
         /// @return 是否成功使能
-        bool enableMotors(const std::vector<uint32_t>& motor_ids, uint32_t timeout_ms = 3000);
+        bool enableMotors(const std::vector<uint32_t> &motor_ids, uint32_t timeout_ms = 3000);
 
         /// 失能指定电机并等待状态确认
         /// @param motor_ids 电机ID列表
         /// @param timeout_ms 超时时间（毫秒，默认3000ms）
         /// @return 是否成功失能
-        bool disableMotors(const std::vector<uint32_t>& motor_ids, uint32_t timeout_ms = 3000);
+        bool disableMotors(const std::vector<uint32_t> &motor_ids, uint32_t timeout_ms = 3000);
 
         // ==================== 状态监控 ====================
 
@@ -116,10 +125,39 @@ namespace robot::motor {
         // 当 state_only_polling_ 为 true 时，只查询状态
         void pollOnce();
 
+        // ==================== 多CAN接口管理 ====================
+
+        /// 添加CAN接口
+        /// @param name 接口名称（如 "can0", "can1"）
+        /// @param socket CAN套接字
+        /// @return 是否成功
+        bool addInterface(const std::string &name, const std::shared_ptr<can::CANSocket> &socket);
+
+        /// 移除CAN接口
+        /// @param name 接口名称
+        void removeInterface(const std::string &name);
+
+        /// 获取指定接口的socket
+        /// @param name 接口名称
+        /// @return CAN套接字，未找到返回nullptr
+        std::shared_ptr<can::CANSocket> getInterface(const std::string &name) const;
+
+        /// 获取所有接口名称
+        /// @return 接口名称列表
+        std::vector<std::string> getInterfaceNames() const;
+
+        /// 获取接口数量
+        /// @return 接口数量
+        size_t getInterfaceCount() const;
+
     private:
-        std::shared_ptr<can::CANSocket> socket_;
+        std::shared_ptr<can::CANSocket> socket_; // 单接口模式使用（向后兼容）
         std::shared_ptr<can::CANFrameRouter> router_;
         Options options_;
+
+        // 多接口管理
+        mutable std::shared_mutex sockets_mutex_;
+        std::unordered_map<std::string, std::shared_ptr<can::CANSocket> > sockets_;
 
         std::unordered_map<uint32_t, std::shared_ptr<Motor> > motors_;
         mutable std::shared_mutex motors_mutex_;
