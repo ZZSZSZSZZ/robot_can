@@ -94,6 +94,49 @@ namespace robot::motor {
         /// @return 轮询帧列表
         std::vector<can::CANFrame> onStatusPoll() override { return {}; }
 
+
+        /**
+         * @brief 从CAN帧数据中提取32位有符号整数（大端序）
+         * @param data 帧数据数组
+         * @param offset 起始偏移量
+         * @return 提取的32位有符号整数
+         */
+        static int32_t extractInt32BE(const std::vector<uint8_t> &data, size_t offset = 0) {
+            if (data.size() < offset + 4) return 0;
+            const uint32_t uval =
+                    (static_cast<uint32_t>(data[offset]) << 24) |
+                    (static_cast<uint32_t>(data[offset + 1]) << 16) |
+                    (static_cast<uint32_t>(data[offset + 2]) << 8) |
+                    static_cast<uint32_t>(data[offset + 3]);
+            return static_cast<int32_t>(uval);
+        }
+
+        /**
+         * @brief 编码32位有符号整数到字节数组（大端序）
+         * @param value 要编码的值
+         * @param out_data 输出数组
+         * @param offset 起始偏移量
+         */
+        static void encodeInt32BE(int32_t value, std::vector<uint8_t> &out_data, size_t offset = 0) {
+            if (out_data.size() < offset + 4) return;
+            out_data[offset] = static_cast<uint8_t>(value >> 24 & 0xFF);
+            out_data[offset + 1] = static_cast<uint8_t>(value >> 16 & 0xFF);
+            out_data[offset + 2] = static_cast<uint8_t>(value >> 8 & 0xFF);
+            out_data[offset + 3] = static_cast<uint8_t>(value & 0xFF);
+        }
+
+        /**
+         * @brief 创建标准CAN数据帧（8字节）
+         * @param can_id CAN ID
+         * @param data 数据内容（会被填充/截断到8字节）
+         * @return 编码后的CAN帧
+         */
+        can::CANFrame makeDataFrame(uint32_t can_id, const std::vector<uint8_t> &data) const {
+            std::vector<uint8_t> payload = data;
+            payload.resize(8, 0x00); // 确保8字节
+            return encodeFrame(payload, can_id);
+        }
+
     protected:
         mutable std::mutex pending_mutex_; // 待发送帧队列锁
         std::vector<can::CANFrame> pending_frames_; // 待发送帧队列

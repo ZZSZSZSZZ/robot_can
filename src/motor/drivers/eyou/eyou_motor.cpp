@@ -102,48 +102,56 @@ namespace robot::motor::eyou {
     // ========== 故障管理 ==========
 
     uint32_t EYOUMotor::getFaultCode() const {
-        std::lock_guard lock(eyou_mutex_);
-        return eyou_state_.alarm_code;
+        return getCurrentStateSnapshot().alarm_code;
     }
 
     std::vector<std::string> EYOUMotor::getFaultDescriptions() const {
-        std::lock_guard lock(eyou_mutex_);
-        return eyou_state_.getAlarmDescriptions();
+        const uint32_t alarm_code = getCurrentStateSnapshot().alarm_code;
+        std::vector<std::string> alarms;
+        if (alarm_code & Alarm::OVER_VOLTAGE) alarms.push_back("OVER_VOLTAGE");
+        if (alarm_code & Alarm::UNDER_VOLTAGE) alarms.push_back("UNDER_VOLTAGE");
+        if (alarm_code & Alarm::OVER_TEMP) alarms.push_back("OVER_TEMP");
+        if (alarm_code & Alarm::OVER_CURRENT) alarms.push_back("OVER_CURRENT");
+        if (alarm_code & Alarm::OVERLOAD) alarms.push_back("OVERLOAD");
+        if (alarm_code & Alarm::MOTOR_LOCK) alarms.push_back("MOTOR_LOCK");
+        if (alarm_code & Alarm::PHASE_LOSS) alarms.push_back("PHASE_LOSS");
+        if (alarm_code & Alarm::PARAM_ERROR) alarms.push_back("PARAM_ERROR");
+        if (alarm_code & Alarm::ENCODER_MAG_ERROR) alarms.push_back("ENCODER_MAG_ERROR");
+        if (alarm_code & Alarm::ENCODER_UVLO) alarms.push_back("ENCODER_UVLO");
+        if (alarm_code & Alarm::ENCODER_ANGLE_ERROR) alarms.push_back("ENCODER_ANGLE_ERROR");
+        return alarms;
     }
 
     // ========== CAN通信 ==========
 
     void EYOUMotor::onCANFrameReceived(const can::CANFrame &frame) {
         MotorState state;
-        EYOUMotorState eyou_state;
 
-        if (decodeFrame(frame, state, eyou_state)) {
+        if (decodeFrame(frame, state)) {
             updateState(state);
-            updateEYOUState(eyou_state);
         }
     }
 
     void EYOUMotor::generatePollFrames(std::vector<can::CANFrame> &out_frames) {
-        const uint32_t cnt = incrementPollCount();
         const uint32_t can_id = getTransmitCanId();
 
         // 位置每轮询必查
         out_frames.push_back(EYOUReadCmd(Addr::POSITION_VALUE).encode(can_id)[0]);
 
         // 速度和电流按分频查询
-        if (cnt % polling_policy_.velocity_poll_divisor == 0) {
+        if (shouldPollVelocity()) {
             out_frames.push_back(EYOUReadCmd(Addr::VELOCITY_VALUE).encode(can_id)[0]);
             out_frames.push_back(EYOUReadCmd(Addr::CURRENT_VALUE).encode(can_id)[0]);
         }
 
         // 温度低频查询
-        if (cnt % polling_policy_.temperature_poll_divisor == 0) {
+        if (shouldPollTemperature()) {
             out_frames.push_back(EYOUReadCmd(Addr::TEMPERATURE).encode(can_id)[0]);
         }
 
         // 使能状态和故障状态查询（每轮询都查，用于状态机更新）
         out_frames.push_back(EYOUReadCmd(Addr::ENABLE_STATE).encode(can_id)[0]);
-        if (cnt % 5 == 0) {  // 故障状态低频查询
+        if (getPollCount() % 5 == 0) {  // 故障状态低频查询
             out_frames.push_back(EYOUReadCmd(Addr::ALARM_STATUS).encode(can_id)[0]);
         }
     }
@@ -156,11 +164,6 @@ namespace robot::motor::eyou {
     }
 
     // ========== EYOUMotor 特有接口 ==========
-
-    EYOUMotorState EYOUMotor::getEYOUState() const {
-        std::lock_guard lock(eyou_mutex_);
-        return eyou_state_;
-    }
 
     std::unique_ptr<EYOUProfilePositionCmd> EYOUMotor::makeProfilePositionCmd(
         double pos, double vel, double torque, double acc, double dec) {
@@ -175,83 +178,41 @@ namespace robot::motor::eyou {
         return std::make_unique<EYOUTorqueCmd>(torque_nm, spec_);
     }
 
-    std::shared_ptr<EYOUMotor> EYOUMotor::from(std::shared_ptr<Motor> motor) {
-        return std::dynamic_pointer_cast<EYOUMotor>(motor);
-    }
-
-    std::shared_ptr<EYOUMotor> EYOUMotor::cast(std::shared_ptr<Motor> motor) {
-        auto result = from(motor);
-        if (!result) {
-            throw std::bad_cast();
-        }
-        return result;
-    }
-
-    bool EYOUMotor::is(std::shared_ptr<Motor> motor) {
-        return from(motor) != nullptr;
-    }
-
     // ========== 私有方法 ==========
 
-    void EYOUMotor::updateEYOUState(const EYOUMotorState &state) {
-        std::lock_guard lock(eyou_mutex_);
-        eyou_state_ = state;
-    }
-
-    bool EYOUMotor::decodeFrame(const can::CANFrame &frame, MotorState &state, EYOUMotorState &eyou) {
+    bool EYOUMotor::decodeFrame(const can::CANFrame &frame, MotorState &state) {
         if (frame.data.size() < 6) return false;
 
-        uint8_t cmd = frame.data[0];
-        uint8_t addr = frame.data[1];
+        const uint8_t cmd = frame.data[0];
+        const uint8_t addr = frame.data[1];
 
         if (cmd != Cmd::READ_REPLY && cmd != Cmd::WRITE_REPLY) return false;
 
-        // 解析32位数据
-        int32_t value = 0;
-        {
-            const uint32_t uval = 
-                (static_cast<uint32_t>(frame.data[2]) << 24) |
-                (static_cast<uint32_t>(frame.data[3]) << 16) |
-                (static_cast<uint32_t>(frame.data[4]) << 8) |
-                static_cast<uint32_t>(frame.data[5]);
-            value = static_cast<int32_t>(uval);
-        }
+        // 使用基类辅助方法解析32位数据
+        const int32_t value = extractInt32BE(frame.data, 2);
 
-        // 复制当前状态作为基础
-        {
-            std::lock_guard lock(state_mutex_);
-            state = current_state_;
-        }
-
-        // 复制上次的意优状态
-        {
-            std::lock_guard lock(eyou_mutex_);
-            eyou = eyou_state_;
-        }
+        // 复制当前状态作为基础（使用基类方法）
+        state = getCurrentStateSnapshot();
 
         state.timestamp = std::chrono::steady_clock::now();
 
         // 根据寄存器地址解析数据
         switch (addr) {
             case Addr::POSITION_VALUE:
-                eyou.raw_position = value;
                 state.position = EYOUUnits::pulsesToRadians(value);
                 break;
             case Addr::VELOCITY_VALUE:
-                eyou.raw_velocity = value;
                 state.velocity = EYOUUnits::pulsesToRadPerSec(value);
                 break;
             case Addr::CURRENT_VALUE:
-                eyou.raw_current = value;
                 state.current = EYOUUnits::milliampsToAmps(value);
-                eyou.estimated_torque = EYOUUnits::currentToTorque(value, spec_);
-                state.torque = eyou.estimated_torque;
+                state.torque = EYOUUnits::currentToTorque(value, spec_);
                 break;
             case Addr::TEMPERATURE:
                 state.temperature = static_cast<double>(value);
                 break;
             case Addr::ALARM_STATUS:
-                eyou.alarm_code = static_cast<uint32_t>(value);
+                state.alarm_code = static_cast<uint32_t>(value);
                 // 根据故障状态更新状态机
                 if (value != 0) {
                     state.state_machine = MotorStateMachine::Fault;
@@ -280,4 +241,4 @@ namespace robot::motor::eyou {
         }
         return true;
     }
-} // namespace robot::motor::eyou
+}

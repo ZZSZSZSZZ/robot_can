@@ -20,19 +20,6 @@
 namespace robot::motor::eyou {
     using robot::can::CANFrame;
 
-    // 意优特定状态
-    struct EYOUMotorState {
-        uint32_t alarm_code = 0;
-        int32_t raw_position = 0;
-        int32_t raw_velocity = 0;
-        int32_t raw_current = 0;
-        double estimated_torque = 0.0;
-
-        bool hasAlarm(uint32_t alarm_flag) const { return (alarm_code & alarm_flag) != 0; }
-
-        std::vector<std::string> getAlarmDescriptions() const;
-    };
-
     // 意优命令基类
     class EYOUCommand : public MotorCommand, public CANCommandEncoder {
     public:

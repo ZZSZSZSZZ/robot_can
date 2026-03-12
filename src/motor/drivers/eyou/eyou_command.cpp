@@ -11,41 +11,22 @@
 #include "can/can_coding.hpp"
 
 namespace robot::motor::eyou {
-    // 辅助函数 - 使用can_coding进行帧编码
+    // 辅助函数 - 使用基类静态方法进行帧编码
     static CANFrame makeFrame(uint32_t id, uint8_t cmd, uint8_t addr, int32_t data) {
-        std::vector<uint8_t> payload = {
-            cmd, addr,
-            static_cast<uint8_t>(data >> 24 & 0xFF),
-            static_cast<uint8_t>(data >> 16 & 0xFF),
-            static_cast<uint8_t>(data >> 8 & 0xFF),
-            static_cast<uint8_t>(data & 0xFF),
-            0x00, 0x00
-        };
-        
+        std::vector<uint8_t> payload(8, 0x00);
+        payload[0] = cmd;
+        payload[1] = addr;
+        // 使用基类的静态方法编码32位整数
+        CANMotor::encodeInt32BE(data, payload, 2);
+
         // 使用标准CAN设备需求
         can::CANDeviceFrameRequirement req{};
         req.preferredType = can::CANFrameType::Standard;
         req.requireExtendedId = false;
         req.maxDataLength = 8;
         req.requireCanFd = false;
-        
-        return can::CANFrameEncoder::encode(payload, id, req);
-    }
 
-    std::vector<std::string> EYOUMotorState::getAlarmDescriptions() const {
-        std::vector<std::string> alarms;
-        if (hasAlarm(Alarm::OVER_VOLTAGE)) alarms.push_back("OVER_VOLTAGE");
-        if (hasAlarm(Alarm::UNDER_VOLTAGE)) alarms.push_back("UNDER_VOLTAGE");
-        if (hasAlarm(Alarm::OVER_TEMP)) alarms.push_back("OVER_TEMP");
-        if (hasAlarm(Alarm::OVER_CURRENT)) alarms.push_back("OVER_CURRENT");
-        if (hasAlarm(Alarm::OVERLOAD)) alarms.push_back("OVERLOAD");
-        if (hasAlarm(Alarm::MOTOR_LOCK)) alarms.push_back("MOTOR_LOCK");
-        if (hasAlarm(Alarm::PHASE_LOSS)) alarms.push_back("PHASE_LOSS");
-        if (hasAlarm(Alarm::PARAM_ERROR)) alarms.push_back("PARAM_ERROR");
-        if (hasAlarm(Alarm::ENCODER_MAG_ERROR)) alarms.push_back("ENCODER_MAG_ERROR");
-        if (hasAlarm(Alarm::ENCODER_UVLO)) alarms.push_back("ENCODER_UVLO");
-        if (hasAlarm(Alarm::ENCODER_ANGLE_ERROR)) alarms.push_back("ENCODER_ANGLE_ERROR");
-        return alarms;
+        return can::CANFrameEncoder::encode(payload, id, req);
     }
 
     // 命令实现

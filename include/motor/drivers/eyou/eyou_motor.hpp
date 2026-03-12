@@ -8,7 +8,6 @@
 #pragma once
 
 #include <memory>
-#include <mutex>
 
 #include "eyou_protocol_constants.hpp"
 #include "motor/drivers/base/polling_motor.hpp"
@@ -68,10 +67,6 @@ namespace robot::motor::eyou {
 
         // ========== EYOUMotor 特有接口 ==========
 
-        /// 获取意优特定状态
-        /// @return EYOUMotorState
-        EYOUMotorState getEYOUState() const;
-
         /// 创建轮廓位置命令
         /// @param pos 位置(弧度)
         /// @param vel 速度
@@ -93,27 +88,26 @@ namespace robot::motor::eyou {
         /// @return 命令对象
         std::unique_ptr<EYOUTorqueCmd> makeTorqueCmd(double torque_nm);
 
-        /// 类型转换辅助函数
-        static std::shared_ptr<EYOUMotor> from(std::shared_ptr<Motor> motor);
-        static std::shared_ptr<EYOUMotor> cast(std::shared_ptr<Motor> motor);
-        static bool is(std::shared_ptr<Motor> motor);
+        /// 类型转换辅助函数（使用基类模板）
+        static std::shared_ptr<EYOUMotor> from(std::shared_ptr<Motor> motor) {
+            return ptrFrom<EYOUMotor>(motor);
+        }
+        static std::shared_ptr<EYOUMotor> cast(std::shared_ptr<Motor> motor) {
+            return ptrCast<EYOUMotor>(motor);
+        }
+        static bool is(std::shared_ptr<Motor> motor) {
+            return ptrIs<EYOUMotor>(motor);
+        }
 
     private:
         EYOUMotorSpec spec_;                    ///< 电机规格
-        EYOUMotorState eyou_state_;             ///< 意优特定状态
-        mutable std::mutex eyou_mutex_;         ///< 意优状态保护锁
 
         // ========== 协议特定方法 ==========
 
         /// 解码CAN帧
         /// @param frame 接收到的帧
         /// @param out_state 输出的通用状态
-        /// @param out_eyou 输出的意优状态
         /// @return 是否成功解码
-        bool decodeFrame(const can::CANFrame &frame, MotorState &out_state, EYOUMotorState &out_eyou);
-
-        /// 更新意优特定状态
-        /// @param state 新的意优状态
-        void updateEYOUState(const EYOUMotorState &state);
+        bool decodeFrame(const can::CANFrame &frame, MotorState &out_state);
     };
 } // namespace robot::motor::eyou

@@ -103,5 +103,54 @@ namespace robot::motor {
             }
             state_cv_.notify_all();
         }
+
+        /**
+         * @brief 获取当前状态的副本（线程安全）
+         * @return 当前状态的副本
+         */
+        MotorState getCurrentStateSnapshot() const {
+            std::lock_guard lock(state_mutex_);
+            return current_state_;
+        }
+
+        // ========== 静态类型转换工具模板 ==========
+
+        /**
+         * @brief 从 Motor 智能指针转换到派生类型
+         * @tparam Derived 派生电机类型
+         * @param motor 电机智能指针
+         * @return 转换后的智能指针，失败返回 nullptr
+         */
+        template<typename Derived>
+        static std::shared_ptr<Derived> ptrFrom(std::shared_ptr<Motor> motor) {
+            return std::dynamic_pointer_cast<Derived>(motor);
+        }
+
+        /**
+         * @brief 从 Motor 智能指针强制转换到派生类型
+         * @tparam Derived 派生电机类型
+         * @param motor 电机智能指针
+         * @return 转换后的智能指针
+         * @throws std::bad_cast 转换失败时抛出
+         */
+        template<typename Derived>
+        static std::shared_ptr<Derived> ptrCast(std::shared_ptr<Motor> motor) {
+            auto result = ptrFrom<Derived>(motor);
+            if (!result) {
+                throw std::bad_cast();
+            }
+            return result;
+        }
+
+        /**
+         * @brief 检查 Motor 智能指针是否为指定派生类型
+         * @tparam Derived 派生电机类型
+         * @param motor 电机智能指针
+         * @return 是否匹配
+         */
+        template<typename Derived>
+        static bool ptrIs(std::shared_ptr<Motor> motor) {
+            return ptrFrom<Derived>(motor) != nullptr;
+        }
     };
 } // namespace robot::motor

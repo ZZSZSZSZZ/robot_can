@@ -22,7 +22,7 @@ add_library(robot_can
         src/motor/motor_manager.cpp
         src/motor/motor_factory.cpp
         src/motor/drivers/eyou/eyou_units.cpp
-        src/motor/drivers/eyou/eyou_types.cpp
+        src/motor/drivers/eyou/eyou_command.cpp
         src/motor/drivers/eyou/eyou_specification.cpp
         src/motor/drivers/eyou/eyou_motor.cpp
         src/motor/drivers/eyou/eyou_factory.cpp

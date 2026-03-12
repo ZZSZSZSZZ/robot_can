@@ -34,6 +34,7 @@ namespace robot::motor {
         double torque = 0.0; // 当前实际力矩
         double current = 0.0; // 当前实际电流
         double temperature = 0.0; // 温度
+        uint32_t alarm_code = 0; // 报警代码（驱动器特定）
     };
 
     // 电机配置

@@ -130,5 +130,45 @@ namespace robot::motor {
             if (divisor == 0) return false;
             return getPollCount() % divisor == 0;
         }
+
+        /**
+         * @brief 检查是否应进行全量轮询
+         * @return 是否应该全量轮询
+         */
+        bool shouldFullPoll() const {
+            return shouldPoll(polling_policy_.full_poll_interval);
+        }
+
+        /**
+         * @brief 检查是否应轮询位置
+         * @return 是否应该轮询位置
+         */
+        bool shouldPollPosition() const {
+            return shouldPoll(polling_policy_.position_poll_divisor);
+        }
+
+        /**
+         * @brief 检查是否应轮询速度
+         * @return 是否应该轮询速度
+         */
+        bool shouldPollVelocity() const {
+            return shouldPoll(polling_policy_.velocity_poll_divisor);
+        }
+
+        /**
+         * @brief 检查是否应轮询电流
+         * @return 是否应该轮询电流
+         */
+        bool shouldPollCurrent() const {
+            return shouldPoll(polling_policy_.current_poll_divisor);
+        }
+
+        /**
+         * @brief 检查是否应轮询温度
+         * @return 是否应该轮询温度
+         */
+        bool shouldPollTemperature() const {
+            return shouldPoll(polling_policy_.temperature_poll_divisor);
+        }
     };
 } // namespace robot::motor
