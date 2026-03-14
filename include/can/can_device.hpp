@@ -60,5 +60,14 @@ namespace robot::can {
 
         /// 返回设备的名称
         virtual std::string getName() const = 0;
+
+        /// 检查给定的帧 ID 是否匹配此设备
+        /// 默认实现：精确匹配 getReceiveId()
+        /// 子类可以覆盖以实现自定义的 ID 解析逻辑（如灵足电机的 bit8-15 匹配）
+        /// @param frame_id 接收到的 CAN 帧 ID
+        /// @return true 如果此帧应该被路由到该设备
+        virtual bool matchesFrame(uint32_t frame_id) const {
+            return frame_id == getReceiveId();
+        }
     };
 }

@@ -40,7 +40,15 @@ namespace robot::can {
         {
             std::lock_guard lock(mutex_);
             const DeviceKey key{frame.id, frame.format.isExtendedId};
-            const auto it = devices_.find(key);
+            auto it = devices_.find(key);
+            
+            // 精确匹配失败，尝试解析 frame.id 的 bit8-15（灵足电机协议中的电机ID）
+            if (it == devices_.end()) {
+                const uint8_t parsed_id = static_cast<uint8_t>((frame.id >> 8) & 0xFF);
+                const DeviceKey parsed_key{static_cast<uint32_t>(parsed_id), frame.format.isExtendedId};
+                it = devices_.find(parsed_key);
+            }
+            
             if (it == devices_.end()) {
                 Logger::warn("No device registered for ID=0x" + std::to_string(frame.id) +
                              (frame.format.isExtendedId ? " ext" : " std"));

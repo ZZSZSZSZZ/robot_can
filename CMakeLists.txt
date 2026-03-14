@@ -26,6 +26,11 @@ add_library(robot_can
         src/motor/drivers/eyou/eyou_specification.cpp
         src/motor/drivers/eyou/eyou_motor.cpp
         src/motor/drivers/eyou/eyou_factory.cpp
+        src/motor/drivers/lingzu/lingzu_units.cpp
+        src/motor/drivers/lingzu/lingzu_command.cpp
+        src/motor/drivers/lingzu/lingzu_specification.cpp
+        src/motor/drivers/lingzu/lingzu_motor.cpp
+        src/motor/drivers/lingzu/lingzu_factory.cpp
         src/robot/arm_component.cpp
         src/robot/robot.cpp
 )
@@ -100,4 +105,7 @@ if (BUILD_TESTING)
 
     add_executable(test_robot test/test_robot.cpp)
     target_link_libraries(test_robot robot_can)
+
+    add_executable(test_lingzu_motor test/test_lingzu_motor.cpp)
+    target_link_libraries(test_lingzu_motor robot_can)
 endif ()

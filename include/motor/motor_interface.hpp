@@ -8,11 +8,16 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "motor_type.hpp"
 #include "can/can_frame.hpp"
+
+namespace robot::common {
+    class Logger;
+}
 
 namespace robot::motor {
     // 前向声明
@@ -119,6 +124,23 @@ namespace robot::motor {
         /// @param current_a 目标电流(安培)
         /// @return 是否成功
         virtual bool setCurrent(double current_a) = 0;
+
+        /// MIT模式控制 (Model-based Impedance Control)
+        /// @param position_rad 目标位置(弧度)
+        /// @param velocity_rad_s 目标速度(弧度/秒)
+        /// @param kp 位置增益
+        /// @param kd 速度增益
+        /// @param torque_nm 前馈力矩(牛米)
+        /// @return 是否成功
+        /// @note 默认实现返回false，支持的电机应重写此方法
+        virtual bool setMIT(double position_rad, double velocity_rad_s, double torque_nm, double kp, double kd) {
+            (void)position_rad;
+            (void)velocity_rad_s;
+            (void)torque_nm;
+            (void)kp;
+            (void)kd;
+            return false;
+        }
 
         // ========== 配置管理 ==========
 

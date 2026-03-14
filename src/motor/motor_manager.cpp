@@ -7,6 +7,10 @@
 
 #include "motor/motor_manager.hpp"
 #include "can/can_coding.hpp"
+#include "motor/drivers/base/polling_motor.hpp"
+#include "motor/drivers/base/auto_report_motor.hpp"
+#include "motor/drivers/base/can_motor.hpp"
+#include "motor/drivers/lingzu/lingzu_motor.hpp"
 #include <mutex>
 
 namespace robot::motor {
@@ -85,6 +89,16 @@ namespace robot::motor {
         // 注册到CAN路由器
         auto can_device = std::make_shared<MotorCANDevice>(motor);
         router_->registerDevice(can_device);
+
+        // 如果管理器已运行但没有轮询线程，启动轮询线程
+        // 注意：所有电机都需要pollOnce()来发送控制命令
+        if (running_ && options_.enable_background_thread && !poll_thread_.joinable()) {
+            try {
+                poll_thread_ = std::thread(&MotorManager::pollLoop, this);
+            } catch (...) {
+                // 启动线程失败，但不影响添加电机
+            }
+        }
 
         return true;
     }
@@ -183,7 +197,15 @@ namespace robot::motor {
                     all_enabled = true;
                     for (uint32_t id: motor_ids) {
                         auto it = motors_.find(id);
-                        if (it == motors_.end() || it->second->getState().state_machine != MotorStateMachine::Enabled) {
+                        if (it == motors_.end()) {
+                            all_enabled = false;
+                            break;
+                        }
+                        // 灵足电机没有使能状态反馈，跳过状态检查
+                        if (dynamic_cast<lingzu::LingzuMotor*>(it->second.get()) != nullptr) {
+                            continue;
+                        }
+                        if (it->second->getState().state_machine != MotorStateMachine::Enabled) {
                             all_enabled = false;
                             break;
                         }
@@ -235,6 +257,10 @@ namespace robot::motor {
                     for (uint32_t id: motor_ids) {
                         auto it = motors_.find(id);
                         if (it == motors_.end()) continue;
+                        // 灵足电机没有失能状态反馈，跳过状态检查
+                        if (dynamic_cast<lingzu::LingzuMotor*>(it->second.get()) != nullptr) {
+                            continue;
+                        }
                         const auto state = it->second->getState().state_machine;
                         if (state != MotorStateMachine::Disabled && state != MotorStateMachine::Fault) {
                             all_disabled = false;
@@ -307,6 +333,23 @@ namespace robot::motor {
     bool MotorManager::start() {
         if (running_) return true;
         if (!options_.enable_background_thread) return true;
+
+        // 检查是否有任何电机
+        bool has_any_motors = false;
+        {
+            std::shared_lock lock(motors_mutex_);
+            has_any_motors = !motors_.empty();
+        }
+
+        // 如果有电机，启动轮询线程
+        // 注意：即使是自动上报型电机，也需要pollOnce()来发送控制命令
+        if (!has_any_motors) {
+            // 没有电机，不需要启动轮询线程
+            // 但保持 running_ = true 以表示管理器处于活动状态
+            running_ = true;
+            return true;
+        }
+
         try {
             running_ = true;
             poll_thread_ = std::thread(&MotorManager::pollLoop, this);
@@ -338,27 +381,63 @@ namespace robot::motor {
         const bool state_only = state_only_polling_.load(std::memory_order_relaxed);
 
         for (auto &[id, motor]: motors_) {
-            const auto state = motor->getState().state_machine;
-
-            // 如果启用了跳过未使能电机查询，跳过 Disabled 和 Fault 状态的电机
-            if (options_.skip_poll_if_disabled) {
-                if (state == MotorStateMachine::Disabled || state == MotorStateMachine::Fault) {
-                    continue;
-                }
-            }
-
             // 获取电机的接口名称
             std::string interface_name = motor->getConfig().interface_name;
             if (interface_name.empty()) {
                 interface_name = "default";  // 使用默认接口
             }
 
-            // 根据模式添加状态查询帧
             std::vector<can::CANFrame> frames;
-            if (state_only) {
-                frames = motor->onStateOnlyPoll();
-            } else {
+
+            // 检查电机类型：轮询型 vs 自动上报型
+            auto* polling_motor = dynamic_cast<PollingMotor*>(motor.get());
+            auto* auto_report_motor = dynamic_cast<AutoReportMotor*>(motor.get());
+
+            if (polling_motor != nullptr) {
+                // ===== 轮询型电机 =====
+                const auto state = motor->getState().state_machine;
+
+                // 如果启用了跳过未使能电机查询，跳过 Disabled 和 Fault 状态的电机
+                if (options_.skip_poll_if_disabled) {
+                    if (state == MotorStateMachine::Disabled || state == MotorStateMachine::Fault) {
+                        // 即使跳过状态查询，也要发送控制命令
+                        frames = motor->onStateOnlyPoll();
+                    } else {
+                        // 正常轮询状态
+                        if (state_only) {
+                            frames = motor->onStateOnlyPoll();
+                        } else {
+                            frames = motor->onStatusPoll();
+                        }
+                    }
+                } else {
+                    // 不跳过，正常轮询
+                    if (state_only) {
+                        frames = motor->onStateOnlyPoll();
+                    } else {
+                        frames = motor->onStatusPoll();
+                    }
+                }
+            } else if (auto_report_motor != nullptr) {
+                // ===== 自动上报型电机 =====
+                // 不需要主动轮询状态，只需要发送控制命令
+                // 控制命令会通过 onStatusPoll() -> extractPendingFrames() 获取
                 frames = motor->onStatusPoll();
+            } else {
+                // ===== 其他类型电机（默认处理）=====
+                const auto state = motor->getState().state_machine;
+
+                if (options_.skip_poll_if_disabled) {
+                    if (state == MotorStateMachine::Disabled || state == MotorStateMachine::Fault) {
+                        continue;
+                    }
+                }
+
+                if (state_only) {
+                    frames = motor->onStateOnlyPoll();
+                } else {
+                    frames = motor->onStatusPoll();
+                }
             }
 
             // 按接口分组

@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 
+#include "common/logger.hpp"
 #include "motor/motor_interface.hpp"
 
 namespace robot::motor {
@@ -64,6 +65,18 @@ namespace robot::motor {
         void setStateCallback(std::function<void(const MotorState &)> cb) override {
             std::lock_guard lock(state_mutex_);
             state_callback_ = std::move(cb);
+        }
+
+        // ========== MIT模式控制 (默认实现) ==========
+        /// MIT模式控制默认实现 - 不支持时返回false并记录警告
+        bool setMIT(double position_rad, double velocity_rad_s, double torque_nm, double kp, double kd) override {
+            (void)position_rad;
+            (void)velocity_rad_s;
+            (void)torque_nm;
+            (void)kp;
+            (void)kd;
+            common::Logger::warn("Motor " + config_.name + " does not support MIT mode control");
+            return false;
         }
 
     protected:
